@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import type { AIProvider, ClothingAnalysis } from "./types";
 import { clothingAnalysisSchema } from "@/lib/validation/clothing";
+import { outfitMatchExplanationSchema } from "@/lib/validation/outfitMatch";
 
 // gemini-2.5-flash (and gemini-2.5-flash-lite) return a 404
 // ("no longer available to new users") for API keys/projects created after
@@ -98,7 +99,45 @@ export class GeminiAIProvider implements AIProvider {
     return validated.data;
   }
 
-  async explainOutfitMatch(): Promise<string> {
-    throw new Error("explainOutfitMatch is not implemented — out of scope for the Wardrobe Core milestone.");
+  async explainOutfitMatch(input: {
+    items: { name: string; role: string }[];
+    scoreBreakdown: Record<string, number>;
+  }): Promise<{ explanation: string; conflicts: string[]; rank?: number }> {
+    const prompt = `You are a personal styling assistant. Given this candidate outfit and its already-computed compatibility scores, write a concise (1-2 sentence) user-facing explanation of why it works, and list any real styling conflicts (empty array if none). Do not invent facts not implied by the data.
+
+Outfit items: ${JSON.stringify(input.items)}
+Computed scores (0-100 each): ${JSON.stringify(input.scoreBreakdown)}
+
+Return JSON: { "explanation": string, "conflicts": string[] }`;
+
+    const result = await this.client.models.generateContent({
+      model: MODEL,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            explanation: { type: "string" },
+            conflicts: { type: "array", items: { type: "string" } },
+          },
+          required: ["explanation", "conflicts"],
+        },
+      },
+    });
+
+    const raw = result.text;
+    if (!raw) throw new Error("Gemini returned an empty response.");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("Gemini returned invalid JSON.");
+    }
+    const validated = outfitMatchExplanationSchema.safeParse(parsed);
+    if (!validated.success) {
+      throw new Error(`Gemini explanation failed validation: ${validated.error.message}`);
+    }
+    return validated.data;
   }
 }

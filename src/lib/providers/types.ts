@@ -31,7 +31,7 @@ export interface AIProvider {
   explainOutfitMatch(input: {
     items: { name: string; role: string }[];
     scoreBreakdown: Record<string, number>;
-  }): Promise<string>;
+  }): Promise<{ explanation: string; conflicts: string[]; rank?: number }>;
 }
 
 export interface OutfitGarmentInput {

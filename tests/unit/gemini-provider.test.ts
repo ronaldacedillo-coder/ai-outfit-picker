@@ -60,3 +60,52 @@ describe("GeminiAIProvider", () => {
     await expect(provider.analyzeClothingImage("https://example.com/photo.jpg")).rejects.toThrow();
   });
 });
+
+describe("GeminiAIProvider.explainOutfitMatch", () => {
+  it("returns a validated structured explanation", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return {
+        models: {
+          generateContent: vi.fn().mockResolvedValue({
+            text: JSON.stringify({ explanation: "Clean contrast, formal tone.", conflicts: [], rank: 1 }),
+          }),
+        },
+      };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    const result = await provider.explainOutfitMatch({
+      items: [{ name: "navy jacket", role: "outerwear" }, { name: "white shirt", role: "top" }],
+      scoreBreakdown: { color: 90, formality: 100 },
+    });
+    expect(result.explanation).toContain("contrast");
+    expect(result.conflicts).toEqual([]);
+  });
+
+  it("throws when Gemini returns invalid JSON", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return { models: { generateContent: vi.fn().mockResolvedValue({ text: "not json" }) } };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    await expect(
+      provider.explainOutfitMatch({ items: [], scoreBreakdown: {} })
+    ).rejects.toThrow();
+  });
+
+  it("throws when Gemini's explanation JSON fails validation", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return {
+        models: { generateContent: vi.fn().mockResolvedValue({ text: JSON.stringify({}) }) },
+      };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    await expect(
+      provider.explainOutfitMatch({ items: [], scoreBreakdown: {} })
+    ).rejects.toThrow();
+  });
+});

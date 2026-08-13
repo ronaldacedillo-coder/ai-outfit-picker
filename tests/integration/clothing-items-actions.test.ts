@@ -105,7 +105,7 @@ describe("clothing item actions", () => {
       analyzeClothingImage: async () => {
         throw new Error("quota exceeded");
       },
-      explainOutfitMatch: async () => "",
+      explainOutfitMatch: async () => ({ explanation: "", conflicts: [] }),
     };
 
     const result = await analyzeClothingPhoto(path, user.client, failingProvider);
