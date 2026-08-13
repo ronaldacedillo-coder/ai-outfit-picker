@@ -557,14 +557,43 @@ git commit -m "feat: add outfit generation-tracking columns and private outfit-i
 
 ```ts
 // tests/integration/outfit-generation-actions.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createTestUser } from "./helpers/testUser";
 import { supabaseAdmin } from "./helpers/supabaseAdmin";
 import { generateOutfitVisualization } from "@/app/dashboard/outfit-actions";
 import type { ImageGenProvider } from "@/lib/providers/types";
 
+// The fake success provider returns a placeholder URL, not a real fetchable
+// image -- stub global.fetch so the action's "download the generated image"
+// step succeeds deterministically without depending on a real network
+// resource. Must forward init (headers etc.) on the pass-through path, or
+// Supabase's own authenticated requests break with "No API key found".
+const realFetch = global.fetch;
+global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  if (String(input) === "https://example.com/generated.jpg") {
+    return new Response(new Uint8Array([1, 2, 3]), {
+      status: 200,
+      headers: { "content-type": "image/jpeg" },
+    });
+  }
+  return realFetch(input as never, init);
+}) as typeof fetch;
+
 async function seedClothingItem(userId: string, categoryName: string, color: string) {
   const admin = supabaseAdmin();
+  const imagePath = `${userId}/${categoryName}.jpg`;
+
+  // getSignedUrl requires the object to actually exist in the bucket --
+  // insert a real (tiny) placeholder so the action's signed-URL step works,
+  // matching what a real uploaded clothing photo would provide.
+  const { error: uploadError } = await admin.storage
+    .from("clothing-photos")
+    .upload(imagePath, new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" }), {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+  if (uploadError) throw new Error(`Could not seed storage object: ${uploadError.message}`);
+
   const { data: category } = await admin
     .from("clothing_categories")
     .select("id")
@@ -580,7 +609,7 @@ async function seedClothingItem(userId: string, categoryName: string, color: str
     .from("clothing_items")
     .insert({
       user_id: userId,
-      image_url: `${userId}/${categoryName}.jpg`,
+      image_url: imagePath,
       category_id: category!.id,
       subcategory_id: subcategory!.id,
       primary_color: color,
@@ -636,6 +665,8 @@ describe("generateOutfitVisualization action", () => {
       .eq("outfit_id", result.data.outfitId);
     expect(outfitItems).toHaveLength(1);
 
+    await admin.storage.from("clothing-photos").remove([`${user.id}/top.jpg`]);
+    await admin.storage.from("outfit-images").remove([outfit!.generated_image_url]);
     await user.cleanup();
   });
 
@@ -654,6 +685,7 @@ describe("generateOutfitVisualization action", () => {
     expect(outfits![0].generation_status).toBe("failed");
     expect(outfits![0].generation_error).toBeTruthy();
 
+    await admin.storage.from("clothing-photos").remove([`${user.id}/bottom.jpg`]);
     await user.cleanup();
   });
 
