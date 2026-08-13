@@ -101,23 +101,32 @@ In `package.json`, inside `"scripts"`, add:
 
 - [ ] **Step 3: Create the Vitest config**
 
+Note: this project's directory name contains a space ("Ai Outfit
+Picker"). `URL.pathname` percent-encodes spaces to `%20`, which silently
+breaks the `@/` alias — use `fileURLToPath` instead so the real path
+(with an actual space character) is used.
+
 ```ts
 // vitest.config.ts
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
     alias: {
-      "@": new URL("./src", import.meta.url).pathname,
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
   test: {
     environment: "node",
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     setupFiles: ["./tests/setup.ts"],
+    testTimeout: 20000,
   },
 });
 ```
+
+(`testTimeout` is raised from Vitest's 5s default — integration tests make several real round-trips to Supabase (`createTestUser` alone does an admin create + a sign-in), which routinely exceeds 5s.)
 
 - [ ] **Step 4: Create the test setup file**
 
@@ -324,11 +333,13 @@ describe("clothingAnalysisSchema", () => {
 
   it("rejects a missing required field", () => {
     const { description, ...rest } = validAnalysis;
+    void description;
     expect(clothingAnalysisSchema.safeParse(rest).success).toBe(false);
   });
 
   it("defaults secondaryColors to an empty array when omitted", () => {
     const { secondaryColors, ...rest } = validAnalysis;
+    void secondaryColors;
     const result = clothingAnalysisSchema.safeParse(rest);
     expect(result.success && result.data.secondaryColors).toEqual([]);
   });
@@ -358,6 +369,7 @@ describe("clothingItemInputSchema", () => {
 
   it("rejects a missing imagePath", () => {
     const { imagePath, ...rest } = validInput;
+    void imagePath;
     expect(clothingItemInputSchema.safeParse(rest).success).toBe(false);
   });
 });
@@ -491,6 +503,11 @@ Expected: FAIL — module doesn't exist.
 
 - [ ] **Step 3: Implement**
 
+Note: a naive normalize-and-substring match fails a real case ("Long-Sleeved
+Shirt" vs. seeded `long_sleeve_shirt` — "sleeved" is not a substring of
+"sleeve" or vice versa). Use per-token loose matching (prefix-based, to
+absorb simple inflections) with a match-fraction threshold instead:
+
 ```ts
 // src/lib/wardrobe/matchCategory.ts
 export interface CategoryOption {
@@ -504,8 +521,31 @@ export interface SubcategoryOption {
   name: string;
 }
 
-function normalize(value: string): string {
-  return value.toLowerCase().replace(/[\s_-]+/g, "");
+const SUBCATEGORY_MATCH_THRESHOLD = 0.5;
+
+function tokenize(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+// Loose token equality: handles simple inflection differences (e.g.
+// "sleeve" vs "sleeved") without a full stemmer, by treating the shorter
+// token as a match if it's a prefix of the longer one.
+function tokensLooselyMatch(a: string, b: string): boolean {
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  return shorter.length >= 3 && longer.startsWith(shorter);
+}
+
+function subcategoryScore(subcategoryName: string, aiText: string): number {
+  const nameTokens = tokenize(subcategoryName.replace(/_/g, " "));
+  const textTokens = tokenize(aiText);
+  if (nameTokens.length === 0) return 0;
+  const matched = nameTokens.filter((nt) => textTokens.some((tt) => tokensLooselyMatch(nt, tt)));
+  return matched.length / nameTokens.length;
 }
 
 export function matchSubcategory(
@@ -514,17 +554,19 @@ export function matchSubcategory(
   aiCategory: string,
   aiSubcategory: string
 ): { categoryId: number; subcategoryId: number } | null {
-  const normalizedSub = normalize(aiSubcategory);
-  const bySubcategory = subcategories.find((s) => {
-    const n = normalize(s.name);
-    return n === normalizedSub || n.includes(normalizedSub) || normalizedSub.includes(n);
-  });
-  if (bySubcategory) {
-    return { categoryId: bySubcategory.categoryId, subcategoryId: bySubcategory.id };
+  let best: { subcategory: SubcategoryOption; score: number } | null = null;
+  for (const sub of subcategories) {
+    const score = subcategoryScore(sub.name, aiSubcategory);
+    if (!best || score > best.score) {
+      best = { subcategory: sub, score };
+    }
+  }
+  if (best && best.score >= SUBCATEGORY_MATCH_THRESHOLD) {
+    return { categoryId: best.subcategory.categoryId, subcategoryId: best.subcategory.id };
   }
 
-  const normalizedCat = normalize(aiCategory);
-  const byCategory = categories.find((c) => normalize(c.name) === normalizedCat);
+  const normalizedCat = tokenize(aiCategory).join("");
+  const byCategory = categories.find((c) => tokenize(c.name).join("") === normalizedCat);
   if (byCategory) {
     const firstSub = subcategories.find((s) => s.categoryId === byCategory.id);
     if (firstSub) {
@@ -867,7 +909,6 @@ git commit -m "test: verify storage RLS isolation between users"
 ```ts
 // tests/unit/gemini-provider.test.ts
 import { describe, it, expect, vi } from "vitest";
-import { GeminiAIProvider } from "@/lib/providers/gemini";
 
 const validJson = JSON.stringify({
   category: "top",
@@ -880,12 +921,18 @@ const validJson = JSON.stringify({
   description: "Light blue long-sleeved business shirt.",
 });
 
+// Vitest requires the mocked implementation to be a `function`/`class`
+// (not an arrow function) to support `new` invocation -- an arrow-function
+// implementation throws "is not a constructor" and Vitest logs a warning
+// pointing at this exact requirement.
 vi.mock("@google/genai", () => ({
-  GoogleGenAI: vi.fn().mockImplementation(() => ({
-    models: {
-      generateContent: vi.fn().mockResolvedValue({ text: validJson }),
-    },
-  })),
+  GoogleGenAI: vi.fn().mockImplementation(function () {
+    return {
+      models: {
+        generateContent: vi.fn().mockResolvedValue({ text: validJson }),
+      },
+    };
+  }),
 }));
 
 // Minimal fetch stub so the provider's internal `fetch(imageUrl)` resolves.
@@ -897,6 +944,7 @@ global.fetch = vi.fn().mockResolvedValue({
 
 describe("GeminiAIProvider", () => {
   it("returns a validated ClothingAnalysis on a well-formed response", async () => {
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
     const provider = new GeminiAIProvider("fake-key");
     const result = await provider.analyzeClothingImage("https://example.com/photo.jpg");
     expect(result.category).toBe("top");
@@ -905,25 +953,31 @@ describe("GeminiAIProvider", () => {
 
   it("throws when Gemini returns invalid JSON", async () => {
     const { GoogleGenAI } = await import("@google/genai");
-    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
-      models: { generateContent: vi.fn().mockResolvedValue({ text: "not json" }) },
-    }));
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return { models: { generateContent: vi.fn().mockResolvedValue({ text: "not json" }) } };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
     const provider = new GeminiAIProvider("fake-key");
     await expect(provider.analyzeClothingImage("https://example.com/photo.jpg")).rejects.toThrow();
   });
 
   it("throws when Gemini's JSON fails schema validation", async () => {
     const { GoogleGenAI } = await import("@google/genai");
-    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
-      models: {
-        generateContent: vi.fn().mockResolvedValue({ text: JSON.stringify({ category: "top" }) }),
-      },
-    }));
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return {
+        models: {
+          generateContent: vi.fn().mockResolvedValue({ text: JSON.stringify({ category: "top" }) }),
+        },
+      };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
     const provider = new GeminiAIProvider("fake-key");
     await expect(provider.analyzeClothingImage("https://example.com/photo.jpg")).rejects.toThrow();
   });
 });
 ```
+
+Note: `GeminiAIProvider` itself is imported dynamically (`await import(...)`) in every test, including the first — this keeps module resolution consistent with the two tests that reassign the mock mid-test, rather than relying on static-import hoisting order.
 
 - [ ] **Step 2: Run and verify failure**
 
@@ -1227,6 +1281,19 @@ async function requireUser(supabase: SupabaseClient) {
   return user;
 }
 
+// revalidatePath requires a live Next.js request context (an internal
+// AsyncLocalStorage store). That context doesn't exist when these actions
+// are invoked directly -- e.g. from integration tests -- so calling it
+// there throws. There's nothing to invalidate outside a real request
+// anyway, so it's safe to swallow.
+function safeRevalidatePath(path: string) {
+  try {
+    revalidatePath(path);
+  } catch {
+    // no request context to revalidate against (e.g. running in tests)
+  }
+}
+
 export async function uploadClothingPhoto(
   file: Blob,
   fileExt: string,
@@ -1301,7 +1368,7 @@ export async function saveClothingItem(
 
   if (error || !data) return { error: "Couldn't save this item — please try again." };
 
-  revalidatePath("/dashboard");
+  safeRevalidatePath("/dashboard");
   return { data: { id: data.id } };
 }
 
@@ -1339,7 +1406,7 @@ export async function updateClothingItem(
 
   if (error || !data) return { error: "Couldn't save your changes — please try again." };
 
-  revalidatePath("/dashboard");
+  safeRevalidatePath("/dashboard");
   return { data: { id: data.id } };
 }
 
@@ -1373,7 +1440,7 @@ export async function deleteClothingItem(
     // DB row is already gone; a lingering Storage object isn't user-visible.
   }
 
-  revalidatePath("/dashboard");
+  safeRevalidatePath("/dashboard");
   return { data: { id } };
 }
 
@@ -1823,7 +1890,15 @@ export function UploadItemCard({
   const [path, setPath] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<ClothingAnalysisInput | null>(null);
   const startedRef = useRef(false);
-  const previewUrl = useRef(URL.createObjectURL(file)).current;
+  // Lazy useState initializer (not a ref read) so the object URL is created
+  // exactly once and stays stable across re-renders -- reading
+  // useRef().current during render is disallowed by
+  // eslint-plugin-react-hooks.
+  const [previewUrl] = useState(() => URL.createObjectURL(file));
+
+  useEffect(() => {
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -2240,16 +2315,25 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: categories }, { data: subcategories }, { data: items }] = await Promise.all([
-    supabase.from("clothing_categories").select("id, name").order("sort_order"),
-    supabase.from("clothing_subcategories").select("id, category_id, name"),
-    supabase
-      .from("clothing_items")
-      .select(
-        "id, image_url, category_id, subcategory_id, name, primary_color, primary_color_hex, secondary_colors, pattern, style, formality_level, description, clothing_categories(name), clothing_subcategories(name)"
-      )
-      .order("created_at", { ascending: false }),
-  ]);
+  // Deliberately sequential, not Promise.all. Manual browser testing found
+  // that firing these three queries concurrently on this SSR cookie-based
+  // client reproducibly caused the middle query (clothing_subcategories)
+  // to silently return an empty array -- no error, just zero rows -- even
+  // though the exact same query run standalone (same user, same session)
+  // returns all 5 rows correctly. Root cause: a race in how
+  // @supabase/ssr's createServerClient resolves the auth/cookie context
+  // for concurrent requests within a single render. Sequential awaits
+  // cost a few hundred ms of extra latency but are reliably correct.
+  const { data: categories } = await supabase.from("clothing_categories").select("id, name").order("sort_order");
+  const { data: subcategories } = await supabase
+    .from("clothing_subcategories")
+    .select("id, category_id, name");
+  const { data: items } = await supabase
+    .from("clothing_items")
+    .select(
+      "id, image_url, category_id, subcategory_id, name, primary_color, primary_color_hex, secondary_colors, pattern, style, formality_level, description, clothing_categories(name), clothing_subcategories(name)"
+    )
+    .order("created_at", { ascending: false });
 
   const storage = getStorageProvider(supabase);
   const rows: ClothingItemRow[] = await Promise.all(
