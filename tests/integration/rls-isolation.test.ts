@@ -125,4 +125,41 @@ describe("RLS isolation between users", () => {
     await userA.cleanup();
     await userB.cleanup();
   });
+
+  it("user A cannot get outfit recommendations from user B's wardrobe", async () => {
+    const userA = await createTestUser();
+    const userB = await createTestUser();
+    const admin = supabaseAdmin();
+
+    const { data: category } = await admin.from("clothing_categories").select("id").eq("name", "top").single();
+    const { data: subcategory } = await admin
+      .from("clothing_subcategories")
+      .select("id")
+      .eq("category_id", category!.id)
+      .limit(1)
+      .single();
+    const { data: item } = await admin
+      .from("clothing_items")
+      .insert({
+        user_id: userB.id,
+        image_url: `${userB.id}/shirt.jpg`,
+        category_id: category!.id,
+        subcategory_id: subcategory!.id,
+        primary_color: "white",
+        pattern: "solid",
+        style: "business_formal",
+        formality_level: 4,
+        description: "white shirt",
+      })
+      .select("id")
+      .single();
+
+    const { findMatchingOutfits } = await import("@/app/dashboard/matching-actions");
+    const result = await findMatchingOutfits(item!.id, userA.client);
+    expect("error" in result).toBe(true);
+
+    await admin.from("clothing_items").delete().eq("id", item!.id);
+    await userA.cleanup();
+    await userB.cleanup();
+  });
 });
