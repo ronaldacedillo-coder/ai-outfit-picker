@@ -90,6 +90,8 @@ Evaluated in the required order: completely free → generous free tier → open
 
 ### C.6 Image Generation / Virtual Try-On (the critical component)
 
+**Superseded — see `docs/superpowers/specs/2026-08-13-flux-image-generation-design.md`.** The project uses **FLUX via fal.ai** (`fal-ai/flux-pro/kontext` for one garment, `fal-ai/flux-pro/kontext/max/multi` for two or more) instead of the CatVTON/Gemini-image/FASHN analysis below. FLUX Kontext is an image-*editing* model — it takes the actual uploaded garment photos as references, not just a text description — and carries standard fal.ai/Black Forest Labs commercial API terms, which resolves the CatVTON licensing problem this section originally flagged as unresolved. It is not free: ~$0.04/image (one garment) to ~$0.08/image (multi-garment), pay-as-you-go, no ongoing free tier. The rest of this section is kept for historical context on the tradeoffs that were considered.
+
 This deserves the most scrutiny because it's both the hardest technical problem and the one most likely to involve real cost or licensing constraints.
 
 | Option | Cost | Garment fidelity | Commercial license? | Notes |
@@ -144,9 +146,10 @@ This deserves the most scrutiny because it's both the hardest technical problem 
 | Clothing analysis / reasoning / chat | Google Gemini 2.5 Flash / Flash-Lite | Free multimodal quota covers vision + text in one provider |
 | Compatibility scoring | Custom deterministic algorithm (not an LLM call) | Faster, cheaper, explainable, consistent — LLM only narrates the result (see section G) |
 | Background removal / color swatch | Client-side (`@imgly/background-removal`, `color-thief`) | Zero server cost, per spec's own priority order |
-| Image generation (MVP default) | Self-hosted CatVTON on HF ZeroGPU Space | Best free garment fidelity |
-| Image generation (fallback/simple path) | Gemini 2.5 Flash Image | Commercially clean, simpler, weaker fidelity |
-| Image generation (future commercial upgrade) | FASHN.ai API | Purpose-built, clean commercial license, ~$0.075/image |
+| Image generation (actual) | FLUX via fal.ai (`flux-pro/kontext`, `/max/multi`) | Real reference-image editing (not text-only), commercially licensed, ~$0.04–0.08/image — see `docs/superpowers/specs/2026-08-13-flux-image-generation-design.md`. Rows below are the original analysis, superseded. |
+| ~~Image generation (MVP default)~~ | ~~Self-hosted CatVTON on HF ZeroGPU Space~~ | Superseded — CC-BY-NC license blocked commercial use |
+| ~~Image generation (fallback/simple path)~~ | ~~Gemini 2.5 Flash Image~~ | Superseded |
+| ~~Image generation (future commercial upgrade)~~ | ~~FASHN.ai API~~ | Superseded |
 
 All provider-specific code (Gemini, CatVTON, R2, Supabase) sits behind a small interface per concern (`AIProvider`, `ImageGenProvider`, `StorageProvider`) so swapping any one of them later is a config/adapter change, not an application rewrite — directly addressing the spec's vendor lock-in requirement.
 
@@ -299,12 +302,11 @@ Row-Level Security (RLS) on every table scoped to `user_id = auth.uid()` — thi
 | Database (Supabase) | $0 | >500 MB data or >2 active projects in org |
 | Auth (Supabase Auth) | $0 | >50,000 monthly active users |
 | Storage (Cloudflare R2) | $0 | >10 GB stored or >1M/10M ops |
-| AI classification/reasoning (Gemini) | $0 | >~250–1,500 requests/day depending on model |
-| Image generation (CatVTON on HF ZeroGPU) | $0 | Daily GPU-minute quota exhausted (~3.5 min/day free) → consider HF Pro ($9/mo) or switch to fallback |
-| Image generation (commercial upgrade, later) | $0 in MVP | Only if/when you decide to license commercially — FASHN.ai ~$0.075/image, pay-as-you-go |
+| AI classification/reasoning (Gemini) | $0 | >~1,500 requests/day (gemini-3.5-flash) |
+| Image generation (FLUX via fal.ai) | **~$0.04–0.08 per generated outfit image** | Pay-as-you-go, no ongoing free tier — see `docs/superpowers/specs/2026-08-13-flux-image-generation-design.md` |
 | Analytics | $0 | N/A — self-logged |
 
-**Total estimated MVP cost: $0/month**, assuming personal/small-tester usage. The two most likely first bills, if this grows, are HF Pro ($9/mo) for more image-generation headroom, and a commercial try-on API (FASHN.ai, ~$0.075/image) if you decide to launch commercially rather than stay in NC-license territory. Neither would be introduced without checking in with you first, per your standing instruction.
+**Total estimated cost: $0/month for everything except outfit image generation**, which is real, per-image, pay-as-you-go (~$0.04–0.08/image via fal.ai/FLUX) — there is no free tier for this specific feature. This was a deliberate, transparent tradeoff (see the linked spec): the previously-analyzed free path (self-hosted CatVTON) is non-commercially-licensed, which FLUX via fal.ai resolves at the cost of a small per-generation fee. Every other layer of the app remains free at MVP/personal-testing scale.
 
 ---
 
