@@ -34,13 +34,32 @@ export interface AIProvider {
   }): Promise<string>;
 }
 
-/** Outfit visualization provider (MVP default: self-hosted CatVTON, with a Gemini fallback). */
+export interface OutfitGarmentInput {
+  imageUrl: string; // signed URL, resolved by the caller via StorageProvider
+  role: string; // "top" | "bottom" | "outerwear" | ... (matches outfit_items.role)
+  category: string;
+  subcategory: string;
+  primaryColor: string;
+  pattern: string;
+  style: string;
+}
+
+/**
+ * Outfit visualization provider (MVP default: FLUX via fal.ai). `name` is a
+ * plain string, not a closed union -- the interface exists so providers can
+ * be added without editing it every time.
+ */
 export interface ImageGenProvider {
-  name: "catvton" | "gemini" | "fashn";
+  name: string;
   generateOutfitVisualization(input: {
-    modelReferenceUrl?: string;
-    garmentImageUrls: string[];
-  }): Promise<{ imageUrl: string }>;
+    garments: OutfitGarmentInput[];
+    seed?: number;
+  }): Promise<{
+    imageUrl: string; // temporary, provider-hosted -- caller downloads and re-stores it
+    requestId: string;
+    model: string;
+    prompt: string;
+  }>;
 }
 
 /**
