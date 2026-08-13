@@ -1,0 +1,116 @@
+import { describe, it, expect } from "vitest";
+import { createTestUser } from "./helpers/testUser";
+import { supabaseAdmin } from "./helpers/supabaseAdmin";
+import {
+  uploadClothingPhoto,
+  analyzeClothingPhoto,
+  saveClothingItem,
+  updateClothingItem,
+  deleteClothingItem,
+} from "@/app/dashboard/actions";
+import type { AIProvider } from "@/lib/providers/types";
+
+async function getFirstCategoryAndSubcategory() {
+  const admin = supabaseAdmin();
+  const { data: category } = await admin.from("clothing_categories").select("id").limit(1).single();
+  const { data: subcategory } = await admin
+    .from("clothing_subcategories")
+    .select("id")
+    .eq("category_id", category!.id)
+    .limit(1)
+    .single();
+  return { categoryId: category!.id, subcategoryId: subcategory!.id };
+}
+
+describe("clothing item actions", () => {
+  it("uploads a photo, saves an item, updates it, then deletes it", async () => {
+    const user = await createTestUser();
+    const { categoryId, subcategoryId } = await getFirstCategoryAndSubcategory();
+
+    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+    const uploadResult = await uploadClothingPhoto(blob, "jpg", user.client);
+    if ("error" in uploadResult) throw new Error(uploadResult.error);
+
+    const saveResult = await saveClothingItem(
+      {
+        categoryId,
+        subcategoryId,
+        imagePath: uploadResult.data.path,
+        primaryColor: "blue",
+        secondaryColors: [],
+        pattern: "solid",
+        style: "casual",
+        formalityLevel: 2,
+        description: "test item",
+        userEdited: true,
+      },
+      user.client
+    );
+    if ("error" in saveResult) throw new Error(saveResult.error);
+
+    const admin = supabaseAdmin();
+    const { data: saved } = await admin.from("clothing_items").select("*").eq("id", saveResult.data.id).single();
+    expect(saved!.primary_color).toBe("blue");
+    expect(saved!.image_url).toBe(uploadResult.data.path);
+
+    const updateResult = await updateClothingItem(
+      saveResult.data.id,
+      {
+        categoryId,
+        subcategoryId,
+        imagePath: uploadResult.data.path,
+        primaryColor: "navy",
+        secondaryColors: [],
+        pattern: "solid",
+        style: "casual",
+        formalityLevel: 2,
+        description: "updated",
+        userEdited: true,
+      },
+      user.client
+    );
+    expect("error" in updateResult).toBe(false);
+
+    const { data: updated } = await admin
+      .from("clothing_items")
+      .select("primary_color")
+      .eq("id", saveResult.data.id)
+      .single();
+    expect(updated!.primary_color).toBe("navy");
+
+    const deleteResult = await deleteClothingItem(saveResult.data.id, user.client);
+    expect("error" in deleteResult).toBe(false);
+
+    const { data: gone } = await admin.from("clothing_items").select("id").eq("id", saveResult.data.id);
+    expect(gone).toEqual([]);
+
+    await user.cleanup();
+  });
+
+  it("returns a friendly error and does not throw when input is invalid", async () => {
+    const user = await createTestUser();
+    const result = await saveClothingItem(
+      // @ts-expect-error deliberately invalid for this test
+      { categoryId: -1 },
+      user.client
+    );
+    expect("error" in result).toBe(true);
+    await user.cleanup();
+  });
+
+  it("falls back to manual entry when the AI provider fails", async () => {
+    const user = await createTestUser();
+    const path = `${user.id}/does-not-matter.jpg`;
+    const failingProvider: AIProvider = {
+      analyzeClothingImage: async () => {
+        throw new Error("quota exceeded");
+      },
+      explainOutfitMatch: async () => "",
+    };
+
+    const result = await analyzeClothingPhoto(path, user.client, failingProvider);
+    expect("error" in result).toBe(true);
+
+    await user.cleanup();
+  });
+});

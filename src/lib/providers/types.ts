@@ -43,8 +43,16 @@ export interface ImageGenProvider {
   }): Promise<{ imageUrl: string }>;
 }
 
-/** File storage provider (MVP default: Cloudflare R2). */
+/**
+ * File storage provider (MVP default: Supabase Storage, private bucket;
+ * Cloudflare R2 remains the planned future swap if storage needs grow).
+ *
+ * `uploadImage`'s returned `url` is the storage object PATH, not a
+ * directly-fetchable URL — the bucket is private. Callers resolve a
+ * short-lived renderable URL via `getSignedUrl`.
+ */
 export interface StorageProvider {
   uploadImage(input: { userId: string; file: Blob; path: string }): Promise<{ url: string }>;
   deleteImage(path: string): Promise<void>;
+  getSignedUrl(path: string, expiresInSeconds?: number): Promise<string>;
 }

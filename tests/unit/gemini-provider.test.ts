@@ -1,0 +1,62 @@
+import { describe, it, expect, vi } from "vitest";
+
+const validJson = JSON.stringify({
+  category: "top",
+  subcategory: "long_sleeve_shirt",
+  primaryColor: "light blue",
+  secondaryColors: [],
+  pattern: "solid",
+  style: "business_formal",
+  formalityLevel: 4,
+  description: "Light blue long-sleeved business shirt.",
+});
+
+vi.mock("@google/genai", () => ({
+  GoogleGenAI: vi.fn().mockImplementation(function () {
+    return {
+      models: {
+        generateContent: vi.fn().mockResolvedValue({ text: validJson }),
+      },
+    };
+  }),
+}));
+
+global.fetch = vi.fn().mockResolvedValue({
+  ok: true,
+  headers: new Headers({ "content-type": "image/jpeg" }),
+  arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+}) as unknown as typeof fetch;
+
+describe("GeminiAIProvider", () => {
+  it("returns a validated ClothingAnalysis on a well-formed response", async () => {
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    const result = await provider.analyzeClothingImage("https://example.com/photo.jpg");
+    expect(result.category).toBe("top");
+    expect(result.formalityLevel).toBe(4);
+  });
+
+  it("throws when Gemini returns invalid JSON", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return { models: { generateContent: vi.fn().mockResolvedValue({ text: "not json" }) } };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    await expect(provider.analyzeClothingImage("https://example.com/photo.jpg")).rejects.toThrow();
+  });
+
+  it("throws when Gemini's JSON fails schema validation", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return {
+        models: {
+          generateContent: vi.fn().mockResolvedValue({ text: JSON.stringify({ category: "top" }) }),
+        },
+      };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    await expect(provider.analyzeClothingImage("https://example.com/photo.jpg")).rejects.toThrow();
+  });
+});
