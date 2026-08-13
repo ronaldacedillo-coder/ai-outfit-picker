@@ -992,7 +992,14 @@ import { GoogleGenAI } from "@google/genai";
 import type { AIProvider, ClothingAnalysis } from "./types";
 import { clothingAnalysisSchema } from "@/lib/validation/clothing";
 
-const MODEL = "gemini-2.5-flash";
+// UPDATE (verified against a real key during manual end-to-end testing):
+// gemini-2.5-flash and gemini-2.5-flash-lite both return a hard 404
+// ("no longer available to new users") for API keys/projects created
+// after Google's 2.5-generation free-tier sunset -- this is not a
+// rate-limit issue, the model is simply gone for new keys. Use
+// gemini-3.5-flash instead: confirmed working via direct API call, GA
+// (non-preview), 1,500 req/day free tier as of Aug 2026.
+const MODEL = "gemini-3.5-flash";
 
 const RESPONSE_SCHEMA = {
   type: "object",

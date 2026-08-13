@@ -18,7 +18,7 @@
 ## 2. Confirmed decisions
 
 1. **Storage:** Supabase Storage for this milestone (bucket `clothing-photos`, private). Access stays behind the existing `StorageProvider` interface so migrating to Cloudflare R2 later is an adapter swap, not an application rewrite.
-2. **AI model:** Gemini 2.5 Flash (stable free tier: 250 requests/day, 10 RPM), called via the official `@google/genai` SDK's `ai.models.generateContent`. Gemini 3 Flash exists only as a preview with tighter limits as of this writing — not used for a path users depend on. Model name lives in one constant behind `GeminiAIProvider`, not hard-coded elsewhere.
+2. **AI model:** Gemini 3.5 Flash, called via the official `@google/genai` SDK's `ai.models.generateContent`. Originally chosen as Gemini 2.5 Flash at design time; end-to-end manual testing against a real API key found 2.5 Flash and 2.5 Flash-Lite both return a hard 404 ("no longer available to new users") — a full sunset for new keys, not a rate-limit issue — so the implementation uses 3.5 Flash, the GA (non-preview) successor with a comparable free tier (1,500 req/day as of Aug 2026). Model name lives in one constant behind `GeminiAIProvider`, not hard-coded elsewhere.
 3. **Background removal:** deferred. Not implemented this milestone; revisited when outfit visualization needs garment-preservation fidelity.
 4. **Multi-upload:** supported. Each photo is uploaded, analyzed, and reviewed independently — no batch review form.
 5. **No duplicate uploads:** the image is uploaded to Storage exactly once, immediately after client-side processing. Save only writes DB metadata referencing the already-uploaded object; it never re-uploads the image.
@@ -136,7 +136,7 @@ Client-side image validation is separate, pure, and unit-tested on its own: file
 |---|---|
 | Supabase Storage | Clothing photos only, resized/compressed client-side before upload — well under the ~1 GB free ceiling for personal-scale testing |
 | Supabase Postgres/Auth | No change — already within free tier |
-| Gemini 2.5 Flash | One request per upload + one per re-analyze; 250/day free is far more than a personal wardrobe needs |
+| Gemini 3.5 Flash | One request per upload + one per re-analyze; 1,500/day free is far more than a personal wardrobe needs |
 
 No paid dependency introduced. `SUPABASE_SERVICE_ROLE_KEY` and `GEMINI_API_KEY` are both server-side-only secrets (never `NEXT_PUBLIC_`-prefixed, never sent to the browser).
 
