@@ -28,7 +28,12 @@ interface ClothingItemQueryRow {
 export async function generateOutfitVisualization(
   clothingItemIds: string[],
   injectedClient?: SupabaseClient,
-  injectedImageGen?: ImageGenProvider
+  injectedImageGen?: ImageGenProvider,
+  matchMetadata?: {
+    compatibilityScore?: number;
+    scoreBreakdown?: Record<string, number | null>;
+    aiExplanation?: string;
+  }
 ): Promise<ActionResult<{ outfitId: string; imageUrl: string }>> {
   const supabase = injectedClient ?? (await createClient());
   const user = await requireUser(supabase);
@@ -49,7 +54,13 @@ export async function generateOutfitVisualization(
 
   const { data: outfit, error: insertError } = await supabase
     .from("outfits")
-    .insert({ user_id: user.id, generation_status: "processing" })
+    .insert({
+      user_id: user.id,
+      generation_status: "processing",
+      compatibility_score: matchMetadata?.compatibilityScore ?? null,
+      score_breakdown: matchMetadata?.scoreBreakdown ?? null,
+      ai_explanation: matchMetadata?.aiExplanation ?? null,
+    })
     .select("id")
     .single();
   if (insertError || !outfit) {
