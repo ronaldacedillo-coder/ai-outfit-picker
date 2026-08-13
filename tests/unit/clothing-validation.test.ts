@@ -31,11 +31,13 @@ describe("clothingAnalysisSchema", () => {
 
   it("rejects a missing required field", () => {
     const { description, ...rest } = validAnalysis;
+    void description;
     expect(clothingAnalysisSchema.safeParse(rest).success).toBe(false);
   });
 
   it("defaults secondaryColors to an empty array when omitted", () => {
     const { secondaryColors, ...rest } = validAnalysis;
+    void secondaryColors;
     const result = clothingAnalysisSchema.safeParse(rest);
     expect(result.success && result.data.secondaryColors).toEqual([]);
   });
@@ -65,6 +67,7 @@ describe("clothingItemInputSchema", () => {
 
   it("rejects a missing imagePath", () => {
     const { imagePath, ...rest } = validInput;
+    void imagePath;
     expect(clothingItemInputSchema.safeParse(rest).success).toBe(false);
   });
 });
