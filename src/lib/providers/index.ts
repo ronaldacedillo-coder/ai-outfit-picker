@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AIProvider, StorageProvider } from "./types";
+import type { AIProvider, ImageGenProvider, StorageProvider } from "./types";
 import { GeminiAIProvider } from "./gemini";
 import { SupabaseStorageProvider } from "./supabase-storage";
+import { FalFluxImageGenProvider } from "./fal-flux";
 
 export function getAIProvider(): AIProvider {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -13,4 +14,12 @@ export function getAIProvider(): AIProvider {
 
 export function getStorageProvider(supabase: SupabaseClient): StorageProvider {
   return new SupabaseStorageProvider(supabase);
+}
+
+export function getImageGenProvider(): ImageGenProvider {
+  const apiKey = process.env.FAL_KEY;
+  if (!apiKey) {
+    throw new Error("FAL_KEY is not configured.");
+  }
+  return new FalFluxImageGenProvider(apiKey);
 }
