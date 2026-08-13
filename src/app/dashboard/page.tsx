@@ -35,16 +35,22 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: categories }, { data: subcategories }, { data: items }] = await Promise.all([
-    supabase.from("clothing_categories").select("id, name").order("sort_order"),
-    supabase.from("clothing_subcategories").select("id, category_id, name"),
-    supabase
-      .from("clothing_items")
-      .select(
-        "id, image_url, category_id, subcategory_id, name, primary_color, primary_color_hex, secondary_colors, pattern, style, formality_level, description, clothing_categories(name), clothing_subcategories(name)"
-      )
-      .order("created_at", { ascending: false }),
-  ]);
+  // These are deliberately sequential, not Promise.all. Firing them
+  // concurrently on this SSR cookie-based client reproducibly caused the
+  // middle query to silently return an empty result (no error) --
+  // confirmed by manual testing, root-caused to a race in how
+  // @supabase/ssr's createServerClient resolves the auth/cookie context
+  // for concurrent requests within a single render.
+  const { data: categories } = await supabase.from("clothing_categories").select("id, name").order("sort_order");
+  const { data: subcategories } = await supabase
+    .from("clothing_subcategories")
+    .select("id, category_id, name");
+  const { data: items } = await supabase
+    .from("clothing_items")
+    .select(
+      "id, image_url, category_id, subcategory_id, name, primary_color, primary_color_hex, secondary_colors, pattern, style, formality_level, description, clothing_categories(name), clothing_subcategories(name)"
+    )
+    .order("created_at", { ascending: false });
 
   const storage = getStorageProvider(supabase);
   const rows: ClothingItemRow[] = await Promise.all(
