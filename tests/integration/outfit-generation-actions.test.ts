@@ -104,6 +104,23 @@ describe("generateOutfitVisualization action", () => {
       .eq("outfit_id", result.data.outfitId);
     expect(outfitItems).toHaveLength(1);
 
+    // Regression check: the generated image must land in the dedicated
+    // outfit-images bucket, not silently in clothing-photos (a real bug
+    // caught via manual testing -- a shared, un-parameterized storage
+    // provider instance wrote the result into the wrong bucket while still
+    // reporting success). Assert existence directly rather than relying on
+    // a cleanup .remove() call succeeding, which no-ops silently either way.
+    const { data: signedInOutfitImages, error: outfitImagesError } = await admin.storage
+      .from("outfit-images")
+      .createSignedUrl(outfit!.generated_image_url, 60);
+    expect(outfitImagesError).toBeNull();
+    expect(signedInOutfitImages).toBeTruthy();
+
+    const { data: wrongBucketListing } = await admin.storage
+      .from("clothing-photos")
+      .list(user.id, { search: outfit!.generated_image_url.split("/")[1] });
+    expect(wrongBucketListing).toEqual([]);
+
     await admin.storage.from("clothing-photos").remove([`${user.id}/top.jpg`]);
     await admin.storage.from("outfit-images").remove([outfit!.generated_image_url]);
     await user.cleanup();

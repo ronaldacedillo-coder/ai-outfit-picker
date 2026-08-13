@@ -56,13 +56,22 @@ export async function generateOutfitVisualization(
     return { error: "Couldn't start generation — please try again." };
   }
 
-  const storage = getStorageProvider(supabase);
+  // Two distinct buckets, two provider instances: garment reference photos
+  // live in the wardrobe's private clothing-photos bucket; the generated
+  // result is written to its own private outfit-images bucket. Using a
+  // single shared provider here previously caused the generated image to
+  // silently land in clothing-photos instead -- caught via manual testing,
+  // not by the unit/integration suite, which is why
+  // tests/unit/supabase-storage-provider.test.ts and the bucket assertion
+  // in the integration test below now exist.
+  const clothingStorage = getStorageProvider(supabase);
+  const outfitStorage = getStorageProvider(supabase, "outfit-images");
 
   try {
     const rows = items as unknown as ClothingItemQueryRow[];
     const garments: OutfitGarmentInput[] = await Promise.all(
       rows.map(async (item) => ({
-        imageUrl: await storage.getSignedUrl(item.image_url, 600),
+        imageUrl: await clothingStorage.getSignedUrl(item.image_url, 600),
         role: item.clothing_categories?.name ?? "top",
         category: item.clothing_categories?.name ?? "",
         subcategory: item.clothing_subcategories?.name ?? "",
@@ -81,7 +90,7 @@ export async function generateOutfitVisualization(
     }
     const blob = await imageResponse.blob();
     const path = `${user.id}/${randomUUID()}.jpg`;
-    await storage.uploadImage({ userId: user.id, file: blob, path });
+    await outfitStorage.uploadImage({ userId: user.id, file: blob, path });
 
     await supabase
       .from("outfits")

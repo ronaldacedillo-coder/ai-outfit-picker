@@ -12,8 +12,8 @@ export function getAIProvider(): AIProvider {
   return new GeminiAIProvider(apiKey);
 }
 
-export function getStorageProvider(supabase: SupabaseClient): StorageProvider {
-  return new SupabaseStorageProvider(supabase);
+export function getStorageProvider(supabase: SupabaseClient, bucket?: string): StorageProvider {
+  return new SupabaseStorageProvider(supabase, bucket);
 }
 
 export function getImageGenProvider(): ImageGenProvider {
