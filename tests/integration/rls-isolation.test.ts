@@ -99,4 +99,30 @@ describe("RLS isolation between users", () => {
     await userA.cleanup();
     await userB.cleanup();
   });
+
+  it("user A cannot read or modify user B's outfits row", async () => {
+    const userA = await createTestUser();
+    const userB = await createTestUser();
+    const admin = supabaseAdmin();
+
+    const { data: outfit } = await userB.client
+      .from("outfits")
+      .insert({ user_id: userB.id, generation_status: "completed", generated_image_url: `${userB.id}/x.jpg` })
+      .select("id")
+      .single();
+
+    const { data: readAsA } = await userA.client.from("outfits").select("id").eq("id", outfit!.id);
+    expect(readAsA).toEqual([]);
+
+    const { data: updateAsA } = await userA.client
+      .from("outfits")
+      .update({ generation_status: "failed" })
+      .eq("id", outfit!.id)
+      .select();
+    expect(updateAsA).toEqual([]);
+
+    await admin.from("outfits").delete().eq("id", outfit!.id);
+    await userA.cleanup();
+    await userB.cleanup();
+  });
 });

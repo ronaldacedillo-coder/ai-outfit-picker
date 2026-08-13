@@ -1,0 +1,137 @@
+import { describe, it, expect, vi } from "vitest";
+import { createTestUser } from "./helpers/testUser";
+import { supabaseAdmin } from "./helpers/supabaseAdmin";
+import { generateOutfitVisualization } from "@/app/dashboard/outfit-actions";
+import type { ImageGenProvider } from "@/lib/providers/types";
+
+// The fake success provider returns a placeholder URL, not a real fetchable
+// image -- stub global.fetch so the action's "download the generated image"
+// step succeeds deterministically without depending on a real network resource.
+const realFetch = global.fetch;
+global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  if (String(input) === "https://example.com/generated.jpg") {
+    return new Response(new Uint8Array([1, 2, 3]), {
+      status: 200,
+      headers: { "content-type": "image/jpeg" },
+    });
+  }
+  return realFetch(input as never, init);
+}) as typeof fetch;
+
+async function seedClothingItem(userId: string, categoryName: string, color: string) {
+  const admin = supabaseAdmin();
+  const imagePath = `${userId}/${categoryName}.jpg`;
+
+  // getSignedUrl requires the object to actually exist in the bucket --
+  // insert a real (tiny) placeholder so the action's signed-URL step works,
+  // matching what a real uploaded clothing photo would provide.
+  const { error: uploadError } = await admin.storage
+    .from("clothing-photos")
+    .upload(imagePath, new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" }), {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+  if (uploadError) throw new Error(`Could not seed storage object: ${uploadError.message}`);
+
+  const { data: category } = await admin
+    .from("clothing_categories")
+    .select("id")
+    .eq("name", categoryName)
+    .single();
+  const { data: subcategory } = await admin
+    .from("clothing_subcategories")
+    .select("id, name")
+    .eq("category_id", category!.id)
+    .limit(1)
+    .single();
+  const { data: item } = await admin
+    .from("clothing_items")
+    .insert({
+      user_id: userId,
+      image_url: imagePath,
+      category_id: category!.id,
+      subcategory_id: subcategory!.id,
+      primary_color: color,
+      pattern: "solid",
+      style: "business_formal",
+      formality_level: 4,
+      description: `${color} ${categoryName}`,
+    })
+    .select("id")
+    .single();
+  return item!.id as string;
+}
+
+const fakeSuccessProvider: ImageGenProvider = {
+  name: "fal-flux",
+  generateOutfitVisualization: async () => ({
+    imageUrl: "https://example.com/generated.jpg",
+    requestId: "req-test-1",
+    model: "fal-ai/flux-pro/kontext",
+    prompt: "test prompt",
+  }),
+};
+
+const fakeFailingProvider: ImageGenProvider = {
+  name: "fal-flux",
+  generateOutfitVisualization: async () => {
+    throw new Error("simulated failure");
+  },
+};
+
+describe("generateOutfitVisualization action", () => {
+  it("creates a completed outfit with a stored image on success", async () => {
+    const user = await createTestUser();
+    const itemId = await seedClothingItem(user.id, "top", "white");
+
+    const result = await generateOutfitVisualization([itemId], user.client, fakeSuccessProvider);
+    if ("error" in result) throw new Error(result.error);
+
+    const admin = supabaseAdmin();
+    const { data: outfit } = await admin
+      .from("outfits")
+      .select("*")
+      .eq("id", result.data.outfitId)
+      .single();
+    expect(outfit!.generation_status).toBe("completed");
+    expect(outfit!.image_gen_provider).toBe("fal-flux");
+    expect(outfit!.generated_image_url).toBeTruthy();
+    expect(outfit!.generation_request_id).toBe("req-test-1");
+
+    const { data: outfitItems } = await admin
+      .from("outfit_items")
+      .select("*")
+      .eq("outfit_id", result.data.outfitId);
+    expect(outfitItems).toHaveLength(1);
+
+    await admin.storage.from("clothing-photos").remove([`${user.id}/top.jpg`]);
+    await admin.storage.from("outfit-images").remove([outfit!.generated_image_url]);
+    await user.cleanup();
+  });
+
+  it("marks the outfit failed and returns a safe error when generation fails", async () => {
+    const user = await createTestUser();
+    const itemId = await seedClothingItem(user.id, "bottom", "gray");
+
+    const result = await generateOutfitVisualization([itemId], user.client, fakeFailingProvider);
+    expect("error" in result).toBe(true);
+
+    const admin = supabaseAdmin();
+    const { data: outfits } = await admin
+      .from("outfits")
+      .select("generation_status, generation_error")
+      .eq("user_id", user.id);
+    expect(outfits![0].generation_status).toBe("failed");
+    expect(outfits![0].generation_error).toBeTruthy();
+
+    await admin.storage.from("clothing-photos").remove([`${user.id}/bottom.jpg`]);
+    await user.cleanup();
+  });
+
+  it("returns an error for an empty selection instead of throwing", async () => {
+    const user = await createTestUser();
+    const result = await generateOutfitVisualization([], user.client, fakeSuccessProvider);
+    expect("error" in result).toBe(true);
+    await user.cleanup();
+  });
+});
