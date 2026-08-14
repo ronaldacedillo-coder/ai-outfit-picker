@@ -151,4 +151,25 @@ describe("generateOutfitVisualization action", () => {
     expect("error" in result).toBe(true);
     await user.cleanup();
   });
+
+  it("persists score/explanation metadata when provided", async () => {
+    const user = await createTestUser();
+    const itemId = await seedClothingItem(user.id, "top", "white");
+
+    const result = await generateOutfitVisualization([itemId], user.client, fakeSuccessProvider, {
+      compatibilityScore: 87,
+      scoreBreakdown: { color: 90, formality: 100, style: 80, pattern: 100, silhouette: null },
+      aiExplanation: "Clean, coordinated look.",
+    });
+    if ("error" in result) throw new Error(result.error);
+
+    const admin = supabaseAdmin();
+    const { data: outfit } = await admin.from("outfits").select("*").eq("id", result.data.outfitId).single();
+    expect(outfit!.compatibility_score).toBe(87);
+    expect(outfit!.ai_explanation).toBe("Clean, coordinated look.");
+
+    await admin.storage.from("clothing-photos").remove([`${user.id}/top.jpg`]);
+    await admin.storage.from("outfit-images").remove([outfit!.generated_image_url]);
+    await user.cleanup();
+  });
 });
