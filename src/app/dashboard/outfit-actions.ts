@@ -67,6 +67,21 @@ export async function generateOutfitVisualization(
     return { error: "Couldn't start generation — please try again." };
   }
 
+  const rows = items as unknown as ClothingItemQueryRow[];
+
+  // Recorded immediately, before generation is attempted, so the item
+  // selection survives a failed generation -- otherwise a failed outfit
+  // retains no trace of what was being generated, making a "retry the
+  // same combination" action impossible (discovered while building the
+  // My Looks retry flow).
+  await supabase.from("outfit_items").insert(
+    rows.map((item) => ({
+      outfit_id: outfit.id,
+      clothing_item_id: item.id,
+      role: item.clothing_categories?.name ?? "top",
+    }))
+  );
+
   // Two distinct buckets, two provider instances: garment reference photos
   // live in the wardrobe's private clothing-photos bucket; the generated
   // result is written to its own private outfit-images bucket. Using a
@@ -79,7 +94,6 @@ export async function generateOutfitVisualization(
   const outfitStorage = getStorageProvider(supabase, "outfit-images");
 
   try {
-    const rows = items as unknown as ClothingItemQueryRow[];
     const garments: OutfitGarmentInput[] = await Promise.all(
       rows.map(async (item) => ({
         imageUrl: await clothingStorage.getSignedUrl(item.image_url, 600),
@@ -114,14 +128,6 @@ export async function generateOutfitVisualization(
         generation_prompt: generated.prompt,
       })
       .eq("id", outfit.id);
-
-    await supabase.from("outfit_items").insert(
-      rows.map((item) => ({
-        outfit_id: outfit.id,
-        clothing_item_id: item.id,
-        role: item.clothing_categories?.name ?? "top",
-      }))
-    );
 
     return { data: { outfitId: outfit.id, imageUrl: path } };
   } catch (err) {

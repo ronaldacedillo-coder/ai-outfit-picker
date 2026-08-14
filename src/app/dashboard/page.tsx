@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../login/actions";
 import { getStorageProvider } from "@/lib/providers";
@@ -87,14 +88,24 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-semibold">My Wardrobe</h1>
           <p className="mt-1 text-sm text-neutral-500">Signed in as {user?.email}</p>
         </div>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-50"
-          >
-            Sign out
-          </button>
-        </form>
+        <div className="flex items-center gap-4">
+          <nav className="flex gap-4 text-sm font-medium text-neutral-600">
+            <Link href="/dashboard" className="text-neutral-900 underline">
+              My Wardrobe
+            </Link>
+            <Link href="/dashboard/looks" className="hover:text-neutral-900">
+              My Looks
+            </Link>
+          </nav>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-50"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
 
       <UploadPanel categories={categoryOptions} subcategories={subcategoryOptions} />

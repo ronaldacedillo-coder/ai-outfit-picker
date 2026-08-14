@@ -136,10 +136,20 @@ describe("generateOutfitVisualization action", () => {
     const admin = supabaseAdmin();
     const { data: outfits } = await admin
       .from("outfits")
-      .select("generation_status, generation_error")
+      .select("id, generation_status, generation_error")
       .eq("user_id", user.id);
     expect(outfits![0].generation_status).toBe("failed");
     expect(outfits![0].generation_error).toBeTruthy();
+
+    // The attempted item selection must survive a failed generation --
+    // otherwise there is no way to retry the same combination later (the
+    // My Looks "Retry" action depends on this).
+    const { data: outfitItems } = await admin
+      .from("outfit_items")
+      .select("clothing_item_id")
+      .eq("outfit_id", outfits![0].id);
+    expect(outfitItems).toHaveLength(1);
+    expect(outfitItems![0].clothing_item_id).toBe(itemId);
 
     await admin.storage.from("clothing-photos").remove([`${user.id}/bottom.jpg`]);
     await user.cleanup();
