@@ -112,6 +112,7 @@ export interface LookDetail {
   status: string;
   imageSignedUrl: string | null;
   compatibilityScore: number | null;
+  scoreBreakdown: Record<string, number | null> | null;
   aiExplanation: string | null;
   generationError: string | null;
   createdAt: string;
@@ -128,7 +129,9 @@ export async function getLookDetail(
 
   const { data: outfit, error } = await supabase
     .from("outfits")
-    .select("id, generation_status, generated_image_url, compatibility_score, ai_explanation, generation_error, created_at")
+    .select(
+      "id, generation_status, generated_image_url, compatibility_score, score_breakdown, ai_explanation, generation_error, created_at"
+    )
     .eq("id", outfitId)
     .eq("user_id", user.id)
     .single();
@@ -173,6 +176,7 @@ export async function getLookDetail(
         status: outfit.generation_status ?? "processing",
         imageSignedUrl,
         compatibilityScore: outfit.compatibility_score,
+        scoreBreakdown: outfit.score_breakdown,
         aiExplanation: outfit.ai_explanation,
         generationError: outfit.generation_error,
         createdAt: outfit.created_at,

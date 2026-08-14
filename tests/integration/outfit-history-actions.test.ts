@@ -167,6 +167,13 @@ describe("getLookDetail action", () => {
     expect(result.data.look.imageSignedUrl).toBeTruthy();
     expect(result.data.look.compatibilityScore).toBe(92);
     expect(result.data.look.aiExplanation).toBe("A cohesive, polished combination.");
+    expect(result.data.look.scoreBreakdown).toEqual({
+      color: 90,
+      formality: 100,
+      style: 90,
+      pattern: 100,
+      silhouette: null,
+    });
     expect(result.data.look.items.map((i) => i.id).sort()).toEqual([...itemIds].sort());
 
     const admin = supabaseAdmin();
