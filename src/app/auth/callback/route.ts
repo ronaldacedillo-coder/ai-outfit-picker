@@ -25,5 +25,13 @@ export async function GET(request: Request) {
     }
   }
 
+  // A failed exchange on a password-recovery link should land on
+  // /reset-password's own friendly "invalid or expired" state, not the
+  // signup-flavored message below -- every other `next` keeps the existing
+  // fallback untouched.
+  if (next === "/reset-password") {
+    return NextResponse.redirect(`${origin}/reset-password?error=invalid_link`);
+  }
+
   return NextResponse.redirect(`${origin}/login?error=Could not confirm email`);
 }
