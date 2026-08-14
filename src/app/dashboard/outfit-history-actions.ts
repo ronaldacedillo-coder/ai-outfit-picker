@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getStorageProvider } from "@/lib/providers";
@@ -9,6 +10,17 @@ import { deriveLookStyle } from "@/lib/looks/lookStyle";
 import type { LookItemSummary } from "@/lib/looks/types";
 
 type ActionResult<T> = { data: T } | { error: string };
+
+// revalidatePath requires a live Next.js request context, which doesn't
+// exist when these actions run directly from integration tests -- see the
+// identical helper in dashboard/actions.ts.
+function safeRevalidatePath(path: string) {
+  try {
+    revalidatePath(path);
+  } catch {
+    // no request context to revalidate against (e.g. running in tests)
+  }
+}
 
 // The retrieval/presentation layer over persisted outfit data (see
 // architecture principle: matching and image-generation logic stay in
@@ -220,5 +232,6 @@ export async function deleteLook(
 
   if (deleteError) return { error: "Couldn't delete that look — please try again." };
 
+  safeRevalidatePath("/dashboard/looks");
   return { data: { deleted: true } };
 }
