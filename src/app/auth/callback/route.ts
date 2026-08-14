@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// `next` is an attacker-controllable query param (it rides along on a link
+// Supabase emails out), and naively concatenating it into `${origin}${next}`
+// is an open redirect: `next=@evil.com` resolves to host "evil.com" (the URL
+// userinfo trick), and `next=//evil.com` is a protocol-relative redirect.
+// Only same-origin absolute paths are allowed through.
+export function safeNextPath(next: string | null): string {
+  if (next && /^\/(?!\/|\\)/.test(next)) return next;
+  return "/dashboard";
+}
+
 // Handles the redirect from Supabase's email confirmation / magic link.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = safeNextPath(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
