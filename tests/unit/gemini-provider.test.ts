@@ -11,6 +11,15 @@ const validJson = JSON.stringify({
   description: "Light blue long-sleeved business shirt.",
 });
 
+class MockApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 vi.mock("@google/genai", () => ({
   GoogleGenAI: vi.fn().mockImplementation(function () {
     return {
@@ -19,6 +28,7 @@ vi.mock("@google/genai", () => ({
       },
     };
   }),
+  ApiError: MockApiError,
 }));
 
 global.fetch = vi.fn().mockResolvedValue({
@@ -107,5 +117,51 @@ describe("GeminiAIProvider.explainOutfitMatch", () => {
     await expect(
       provider.explainOutfitMatch({ items: [], scoreBreakdown: {} })
     ).rejects.toThrow();
+  });
+});
+
+describe("GeminiAIProvider retry behavior", () => {
+  it("retries once on a 503 (UNAVAILABLE) and succeeds on the second attempt", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    const generateContent = vi
+      .fn()
+      .mockRejectedValueOnce(new MockApiError(503, "high demand"))
+      .mockResolvedValueOnce({ text: validJson });
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return { models: { generateContent } };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    const result = await provider.analyzeClothingImage("https://example.com/photo.jpg");
+    expect(result.category).toBe("top");
+    expect(generateContent).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries once on a 429 (rate limit) and gives up if it fails again", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    const generateContent = vi.fn().mockRejectedValue(new MockApiError(429, "rate limited"));
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return { models: { generateContent } };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    await expect(provider.analyzeClothingImage("https://example.com/photo.jpg")).rejects.toThrow(
+      /rate limited/
+    );
+    expect(generateContent).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a non-retryable error (e.g. 401 invalid API key)", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    const generateContent = vi.fn().mockRejectedValue(new MockApiError(401, "invalid API key"));
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return { models: { generateContent } };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    await expect(provider.analyzeClothingImage("https://example.com/photo.jpg")).rejects.toThrow(
+      /invalid API key/
+    );
+    expect(generateContent).toHaveBeenCalledTimes(1);
   });
 });

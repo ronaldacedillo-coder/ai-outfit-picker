@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createTestUser } from "./helpers/testUser";
 import { supabaseAdmin } from "./helpers/supabaseAdmin";
 import {
@@ -111,6 +111,35 @@ describe("clothing item actions", () => {
     const result = await analyzeClothingPhoto(path, user.client, failingProvider);
     expect("error" in result).toBe(true);
 
+    await user.cleanup();
+  });
+
+  it("logs the real failure server-side instead of swallowing it silently", async () => {
+    const user = await createTestUser();
+    // A real uploaded file (not just a plausible-looking path) so the
+    // failure genuinely originates from the injected AI provider, not an
+    // upstream "signed URL: object not found" error from a nonexistent file.
+    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+    const uploadResult = await uploadClothingPhoto(blob, "jpg", user.client);
+    if ("error" in uploadResult) throw new Error(uploadResult.error);
+
+    const failingProvider: AIProvider = {
+      analyzeClothingImage: async () => {
+        throw new Error("quota exceeded");
+      },
+      explainOutfitMatch: async () => ({ explanation: "", conflicts: [] }),
+    };
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const result = await analyzeClothingPhoto(uploadResult.data.path, user.client, failingProvider);
+    expect("error" in result).toBe(true);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[analyzeClothingPhoto] AI analysis failed",
+      expect.objectContaining({ name: "Error", message: "quota exceeded" })
+    );
+
+    errorSpy.mockRestore();
     await user.cleanup();
   });
 });
