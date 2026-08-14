@@ -103,7 +103,7 @@ export async function listLooks(injectedClient?: SupabaseClient): Promise<Action
         imageSignedUrl,
         compatibilityScore: outfit.compatibility_score,
         createdAt: outfit.created_at,
-        itemLabels: items.map((i) => `${i.primaryColor} ${i.subcategory}`.trim()),
+        itemLabels: items.map((i) => `${i.primaryColor} ${i.subcategory.replace(/_/g, " ")}`.trim()),
       };
     })
   );
