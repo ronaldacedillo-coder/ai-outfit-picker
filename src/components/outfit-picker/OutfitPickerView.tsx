@@ -1,0 +1,136 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { generateOutfitVisualization } from "@/app/dashboard/outfit-actions";
+import { getOutfitImageUrl } from "@/app/dashboard/outfit-picker-actions";
+import { RecommendationCard } from "./RecommendationCard";
+import { GeneratedOutfitView } from "./GeneratedOutfitView";
+import type { DisplayCandidate, DisplayGarment } from "./types";
+
+const STATUS_MESSAGES = [
+  "Creating your outfit…",
+  "Generating your AI model…",
+  "Almost ready…",
+];
+
+interface SelectedItem {
+  id: string;
+  imageSignedUrl: string;
+  subcategoryName: string;
+  primaryColor: string;
+}
+
+type ViewState =
+  | { mode: "browsing" }
+  | { mode: "generating"; candidateIndex: number }
+  | { mode: "generated"; imageUrl: string; garments: DisplayGarment[] }
+  | { mode: "error"; message: string };
+
+export function OutfitPickerView({
+  selectedItem,
+  candidates,
+}: {
+  selectedItem: SelectedItem;
+  candidates: DisplayCandidate[];
+}) {
+  const [view, setView] = useState<ViewState>({ mode: "browsing" });
+  const [statusIndex, setStatusIndex] = useState(0);
+  const generatingRef = useRef(false);
+
+  useEffect(() => {
+    if (view.mode !== "generating") return;
+    const timer = setInterval(() => {
+      setStatusIndex((i) => Math.min(i + 1, STATUS_MESSAGES.length - 1));
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [view.mode]);
+
+  async function handleVisualize(index: number, candidate: DisplayCandidate) {
+    if (generatingRef.current) return; // one click, one generation -- never per-recommendation
+    generatingRef.current = true;
+    setStatusIndex(0);
+    setView({ mode: "generating", candidateIndex: index });
+
+    const result = await generateOutfitVisualization(
+      candidate.garments.map((g) => g.id),
+      undefined,
+      undefined,
+      {
+        compatibilityScore: candidate.score,
+        scoreBreakdown: candidate.scoreBreakdown,
+        aiExplanation: candidate.explanation,
+      }
+    );
+
+    if ("error" in result) {
+      generatingRef.current = false;
+      setView({ mode: "error", message: result.error });
+      return;
+    }
+
+    const signed = await getOutfitImageUrl(result.data.outfitId);
+    generatingRef.current = false;
+    if ("error" in signed) {
+      setView({ mode: "error", message: signed.error });
+      return;
+    }
+
+    setView({ mode: "generated", imageUrl: signed.data.imageUrl, garments: candidate.garments });
+  }
+
+  if (view.mode === "generated") {
+    return (
+      <GeneratedOutfitView
+        imageUrl={view.imageUrl}
+        garments={view.garments}
+        onBack={() => setView({ mode: "browsing" })}
+        onTryAnother={() => setView({ mode: "browsing" })}
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-4 rounded-xl bg-stone-50 p-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={selectedItem.imageSignedUrl}
+          alt={`${selectedItem.primaryColor} ${selectedItem.subcategoryName}`}
+          className="h-16 w-16 rounded-lg object-cover ring-1 ring-stone-200"
+        />
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Styling from</p>
+          <p className="text-sm font-medium text-stone-800">
+            {selectedItem.primaryColor} {selectedItem.subcategoryName.replace(/_/g, " ")}
+          </p>
+        </div>
+      </div>
+
+      {view.mode === "error" && (
+        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{view.message}</p>
+      )}
+
+      {view.mode === "generating" && (
+        <p className="text-sm font-medium text-stone-600">{STATUS_MESSAGES[statusIndex]}</p>
+      )}
+
+      {candidates.length === 0 ? (
+        <p className="rounded-xl bg-stone-50 px-6 py-10 text-center text-sm text-stone-600">
+          We couldn&apos;t find a strong match in your wardrobe yet. Try adding more shirts or pants.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {candidates.map((candidate, index) => (
+            <RecommendationCard
+              key={index}
+              candidate={candidate}
+              onVisualize={() => handleVisualize(index, candidate)}
+              visualizing={view.mode === "generating" && view.candidateIndex === index}
+              disabled={view.mode === "generating"}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

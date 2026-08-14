@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { deleteClothingItem } from "@/app/dashboard/actions";
 import type { ClothingItemRow } from "@/lib/wardrobe/types";
 
@@ -24,6 +25,12 @@ export function ClothingCard({ item, onEdit }: { item: ClothingItemRow; onEdit: 
       <div className="text-sm font-medium">{item.subcategoryName.replace(/_/g, " ")}</div>
       <div className="text-xs text-neutral-500">{item.primaryColor}</div>
       <p className="line-clamp-2 text-xs text-neutral-600">{item.description}</p>
+      <Link
+        href={`/dashboard/outfit-picker/${item.id}`}
+        className="rounded-md bg-stone-900 px-3 py-1.5 text-center text-xs font-medium text-white transition-transform duration-150 ease-out hover:bg-stone-800 active:scale-[0.97]"
+      >
+        Find outfits
+      </Link>
       <div className="flex gap-2 text-xs">
         <button className="underline" onClick={onEdit}>Edit</button>
         {confirming ? (
