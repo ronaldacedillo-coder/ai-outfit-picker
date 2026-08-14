@@ -82,14 +82,14 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-6 py-16">
-      <header className="flex items-center justify-between">
-        <div>
+    <main className="mx-auto flex min-h-screen w-full min-w-0 max-w-4xl flex-col gap-8 px-6 py-16">
+      <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">My Wardrobe</h1>
-          <p className="mt-1 text-sm text-neutral-500">Signed in as {user?.email}</p>
+          <p className="mt-1 truncate text-sm text-neutral-500">Signed in as {user?.email}</p>
         </div>
-        <div className="flex items-center gap-4">
-          <nav className="flex gap-4 text-sm font-medium text-neutral-600">
+        <div className="flex flex-wrap items-center gap-4">
+          <nav className="flex flex-wrap gap-4 text-sm font-medium text-neutral-600">
             <Link href="/dashboard" className="text-neutral-900 underline">
               My Wardrobe
             </Link>
