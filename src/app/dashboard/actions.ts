@@ -65,7 +65,21 @@ export async function analyzeClothingPhoto(
     const ai = injectedAI ?? getAIProvider();
     const analysis = await ai.analyzeClothingImage(signedUrl);
     return { data: { analysis } };
-  } catch {
+  } catch (err) {
+    // This was previously a bare `catch {}` that swallowed the real cause
+    // entirely -- every failure (missing/invalid key, Gemini outage, a
+    // storage error, a schema mismatch) looked identical from the server
+    // logs. Never logs the API key: it's not in scope here, only whatever
+    // error the storage/AI provider threw.
+    if (err instanceof Error) {
+      console.error("[analyzeClothingPhoto] AI analysis failed", {
+        name: err.name,
+        message: err.message,
+        status: (err as { status?: unknown }).status,
+      });
+    } else {
+      console.error("[analyzeClothingPhoto] AI analysis failed with a non-Error value", err);
+    }
     return { error: "AI analysis is unavailable right now — you can still enter details manually." };
   }
 }
