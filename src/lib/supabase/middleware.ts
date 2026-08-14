@@ -34,9 +34,15 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isProtectedRoute = request.nextUrl.pathname.startsWith("/dashboard");
+  // /reset-password is deliberately not listed here: it must stay reachable
+  // for a user who is only authenticated via a temporary recovery session
+  // (established by /auth/callback), so it can't be bounced to /dashboard
+  // the way /login, /signup, and /forgot-password are. Its own page
+  // component gates it by checking for a session directly.
   const isAuthRoute =
     request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/signup");
+    request.nextUrl.pathname.startsWith("/signup") ||
+    request.nextUrl.pathname.startsWith("/forgot-password");
 
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
