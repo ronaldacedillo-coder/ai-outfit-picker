@@ -8,6 +8,7 @@ import type { ImageGenProvider, OutfitGarmentInput } from "@/lib/providers/types
 import { requireUser } from "@/lib/auth/requireUser";
 import { computeCombinationHash } from "@/lib/outfit/combinationHash";
 import { PROMPT_VERSION } from "@/lib/outfit/buildVisualizationPrompt";
+import { buildGarmentFields } from "@/lib/outfit/buildGarmentInput";
 import { getCurrentRuleVersion } from "@/lib/matching/getRuleVersion";
 
 type ActionResult<T> = { data: T } | { error: string };
@@ -23,7 +24,7 @@ interface ClothingItemQueryRow {
   primary_color_hex: string | null;
   pattern: string | null;
   style: string | null;
-  ai_analysis: { visualDetails?: Record<string, string> } | null;
+  ai_analysis: { subcategory?: string; visualDetails?: Record<string, string> } | null;
   clothing_categories: { name: string } | null;
   clothing_subcategories: { name: string } | null;
 }
@@ -195,14 +196,7 @@ export async function generateOutfitVisualization(
     const garments: OutfitGarmentInput[] = await Promise.all(
       rows.map(async (item) => ({
         imageUrl: await clothingStorage.getSignedUrl(item.image_url, 600),
-        role: item.clothing_categories?.name ?? "top",
-        category: item.clothing_categories?.name ?? "",
-        subcategory: item.clothing_subcategories?.name ?? "",
-        primaryColor: item.primary_color ?? "",
-        primaryColorHex: item.primary_color_hex ?? undefined,
-        pattern: item.pattern ?? "solid",
-        style: item.style ?? "casual",
-        visualDetails: item.ai_analysis?.visualDetails ?? null,
+        ...buildGarmentFields(item),
       }))
     );
 

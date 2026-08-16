@@ -55,8 +55,17 @@ const KNOWN_NON_CORE_ITEMS = [
 // lapelled blazer). Each entry is matched fuzzily (see matchesCategory)
 // against a garment's category/subcategory, so it applies regardless of
 // the exact spelling stored in clothing_subcategories.
-const CATEGORY_LOCK_RULES: { key: string; mustNotBecome: string[] }[] = [
-  { key: "full-zip jacket", mustNotBecome: ["blazer", "suit jacket", "lapelled tailored jacket"] },
+const CATEGORY_LOCK_RULES: { key: string; matchTokens?: string[]; mustNotBecome: string[] }[] = [
+  {
+    key: "full-zip jacket",
+    // The AI garment analyzer produces free-text subcategories -- observed
+    // in production as "zip-up jacket", not this exact display phrase.
+    // Match on the essential tokens only, so the rule actually fires
+    // against real analyzer output instead of just the idealized string
+    // used in tests.
+    matchTokens: ["zip", "jacket"],
+    mustNotBecome: ["blazer", "suit jacket", "lapelled tailored jacket"],
+  },
   { key: "blazer", mustNotBecome: ["suit jacket", "sport coat with peak lapels"] },
   { key: "dress shirt", mustNotBecome: ["polo shirt", "polo"] },
   { key: "polo shirt", mustNotBecome: ["t-shirt", "crew neck shirt"] },
@@ -70,6 +79,18 @@ function matchesCategory(garment: OutfitGarmentInput, key: string): boolean {
   const category = normalize(garment.category);
   const subcategory = normalize(garment.subcategory);
   return category.includes(target) || subcategory.includes(target) || target.includes(subcategory);
+}
+
+// Category-lock rules match on individual tokens (all must be present,
+// order-independent) rather than the full display phrase used above --
+// confirmed via a real generation that a rigid full-phrase match silently
+// never fires against realistic AI-analyzer wording ("zip-up jacket" vs.
+// the "full-zip jacket" key), which is exactly how a full-zip jacket was
+// rendered as a suit jacket with no identity-lock instruction at all.
+function matchesRule(garment: OutfitGarmentInput, rule: { key: string; matchTokens?: string[] }): boolean {
+  const haystack = normalize(`${garment.category} ${garment.subcategory}`);
+  const tokens = rule.matchTokens ?? rule.key.split(/[\s-]+/);
+  return tokens.every((token) => haystack.includes(normalize(token)));
 }
 
 function isSelected(garments: OutfitGarmentInput[], itemName: string): boolean {
@@ -100,7 +121,7 @@ function buildNegativeConstraints(garments: OutfitGarmentInput[]): string[] {
 function buildIdentityLockLines(garments: OutfitGarmentInput[]): string[] {
   const lines: string[] = [];
   garments.forEach((garment, index) => {
-    const rule = CATEGORY_LOCK_RULES.find((r) => matchesCategory(garment, r.key));
+    const rule = CATEGORY_LOCK_RULES.find((r) => matchesRule(garment, r));
     if (!rule) return;
     const alternatives = rule.mustNotBecome.join(", ");
     lines.push(
@@ -194,7 +215,7 @@ function buildOccasionContextLines(context?: { occasion?: Occasion; styleContext
 function buildCategorySubstitutionLines(garments: OutfitGarmentInput[]): string[] {
   const lines: string[] = [];
   for (const garment of garments) {
-    const rule = CATEGORY_LOCK_RULES.find((r) => matchesCategory(garment, r.key));
+    const rule = CATEGORY_LOCK_RULES.find((r) => matchesRule(garment, r));
     if (!rule) continue;
     for (const alternative of rule.mustNotBecome) {
       lines.push(`Do not render this ${rule.key} as a ${alternative}.`);
