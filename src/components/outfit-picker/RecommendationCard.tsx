@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { qualityTier, QUALITY_LABEL, QUALITY_BADGE, QUALITY_METER_FILL, meterTicksFilled } from "./matchQuality";
 import type { DisplayCandidate } from "./types";
 
@@ -17,11 +18,13 @@ export function RecommendationCard({
   onVisualize,
   visualizing,
   disabled,
+  index = 0,
 }: {
   candidate: DisplayCandidate;
   onVisualize: () => void;
   visualizing: boolean;
   disabled: boolean;
+  index?: number;
 }) {
   const tier = qualityTier(candidate.score);
   const filled = meterTicksFilled(candidate.score);
@@ -32,7 +35,12 @@ export function RecommendationCard({
     candidate.source === "admin_override" || candidate.source === "ai" ? SOURCE_LABEL[candidate.source] : null;
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm transition-shadow duration-200 ease-out hover:shadow-md sm:flex-row sm:items-center">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", bounce: 0, duration: 0.35, delay: Math.min(index, 6) * 0.05 }}
+      className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm transition-shadow duration-200 ease-out hover:shadow-md sm:flex-row sm:items-center"
+    >
       <div className="flex gap-2">
         {garments.map((g) => (
           // eslint-disable-next-line @next/next/no-img-element
@@ -87,6 +95,6 @@ export function RecommendationCard({
       >
         {visualizing ? "Generating…" : "Visualize outfit"}
       </button>
-    </div>
+    </motion.div>
   );
 }

@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import type { DisplayGarment } from "./types";
 
 export function GeneratedOutfitView({
@@ -13,12 +14,22 @@ export function GeneratedOutfitView({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-muted">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, filter: "blur(6px)" }}
+        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+        transition={{ type: "spring", bounce: 0, duration: 0.5 }}
+        className="overflow-hidden rounded-xl border border-border-subtle bg-surface-muted"
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imageUrl} alt="Your generated outfit" className="w-full object-contain" />
-      </div>
+      </motion.div>
 
-      <div className="flex flex-wrap gap-2">
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", bounce: 0, duration: 0.35, delay: 0.15 }}
+        className="flex flex-wrap gap-2"
+      >
         {garments.map((g) => (
           <span
             key={g.id}
@@ -27,7 +38,7 @@ export function GeneratedOutfitView({
             {g.primaryColor} {g.subcategory.replace(/_/g, " ")}
           </span>
         ))}
-      </div>
+      </motion.div>
 
       <div className="flex gap-3">
         <button

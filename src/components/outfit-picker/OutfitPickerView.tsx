@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { generateOutfitVisualization } from "@/app/dashboard/outfit-actions";
 import { getOutfitImageUrl } from "@/app/dashboard/outfit-picker-actions";
 import { RecommendationCard } from "./RecommendationCard";
@@ -111,7 +112,20 @@ export function OutfitPickerView({
       )}
 
       {view.mode === "generating" && (
-        <p className="text-sm font-medium text-ink-secondary">{STATUS_MESSAGES[statusIndex]}</p>
+        <div className="relative h-5 overflow-hidden text-sm font-medium text-ink-secondary">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={statusIndex}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+              className="absolute inset-0"
+            >
+              {STATUS_MESSAGES[statusIndex]}
+            </motion.p>
+          </AnimatePresence>
+        </div>
       )}
 
       {candidates.length === 0 ? (
@@ -124,6 +138,7 @@ export function OutfitPickerView({
             <RecommendationCard
               key={index}
               candidate={candidate}
+              index={index}
               onVisualize={() => handleVisualize(index, candidate)}
               visualizing={view.mode === "generating" && view.candidateIndex === index}
               disabled={view.mode === "generating"}

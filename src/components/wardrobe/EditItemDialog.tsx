@@ -5,6 +5,7 @@ import { updateClothingItem } from "@/app/dashboard/actions";
 import type { ClothingItemRow } from "@/lib/wardrobe/types";
 import type { CategoryOption, SubcategoryOption } from "@/lib/wardrobe/matchCategory";
 import { ReviewForm, type ReviewFormValue, type ReviewFormSaveInput } from "./ReviewForm";
+import { Modal } from "@/components/ui/Modal";
 
 export function EditItemDialog({
   item,
@@ -45,20 +46,18 @@ export function EditItemDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-ink/40 p-4">
-      <div className="w-full max-w-lg rounded-xl border border-border-subtle bg-surface p-5 shadow-lg">
-        <h2 className="mb-3 font-display text-xl font-medium text-ink">Edit item</h2>
-        {error && <p className="mb-2 text-sm text-danger">{error}</p>}
-        <ReviewForm
-          analysis={null}
-          categories={categories}
-          subcategories={subcategories}
-          initialValue={initialValue}
-          onSave={handleSave}
-          onCancel={onClose}
-          saving={saving}
-        />
-      </div>
-    </div>
+    <Modal onClose={onClose}>
+      <h2 className="mb-3 font-display text-xl font-medium text-ink">Edit item</h2>
+      {error && <p className="mb-2 text-sm text-danger">{error}</p>}
+      <ReviewForm
+        analysis={null}
+        categories={categories}
+        subcategories={subcategories}
+        initialValue={initialValue}
+        onSave={handleSave}
+        onCancel={onClose}
+        saving={saving}
+      />
+    </Modal>
   );
 }

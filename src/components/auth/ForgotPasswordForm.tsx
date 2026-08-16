@@ -9,10 +9,13 @@ export function ForgotPasswordForm() {
 
   if (state && "data" in state) {
     return (
-      <div className="flex flex-col gap-4 text-center">
+      <div className="flex flex-col gap-4 text-center animate-materialize">
         <h2 className="font-display text-xl font-medium text-ink">Check your email</h2>
         <p className="text-sm text-ink-secondary">{state.data.message}</p>
-        <Link href="/login" className="text-sm font-medium text-ink underline underline-offset-2">
+        <Link
+          href="/login"
+          className="text-sm font-medium text-ink underline underline-offset-2 transition-colors duration-150 ease-out hover:text-accent"
+        >
           Back to Login
         </Link>
       </div>
@@ -41,13 +44,16 @@ export function ForgotPasswordForm() {
       <button
         type="submit"
         disabled={pending}
-        className="mt-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground transition-transform duration-100 ease-out hover:bg-accent-hover active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "Sending…" : "Send reset link"}
       </button>
 
       <p className="text-center text-sm text-ink-secondary">
-        <Link href="/login" className="font-medium text-ink underline underline-offset-2">
+        <Link
+          href="/login"
+          className="font-medium text-ink underline underline-offset-2 transition-colors duration-150 ease-out hover:text-accent"
+        >
           Back to Login
         </Link>
       </p>

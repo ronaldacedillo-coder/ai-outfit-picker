@@ -67,3 +67,71 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Display serif headings read better with slightly tightened tracking and
+   tighter leading at large sizes -- see apple-design typography guidance:
+   tracking is size-specific, and leading tracks size inversely. Body copy
+   stays at the browser default (0 tracking, 1.5 leading). */
+.font-display {
+  letter-spacing: -0.01em;
+}
+h1.font-display,
+.text-2xl.font-display,
+.text-3xl.font-display {
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* One-shot mount reveal for server-rendered pages (auth screens) that have
+   no interactive gesture to interrupt -- a plain CSS animation is the
+   right tool here, not motion/react, which exists for interruptible,
+   client-driven animation. "Materialize" per apple-design: opacity + scale
+   + blur together, not a flat fade. */
+@keyframes materialize {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(6px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+.animate-materialize {
+  animation: materialize 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Translucent sticky chrome (nav/headers) -- content scrolls underneath a
+   blurred, semi-opaque layer rather than a hard-edged opaque bar. */
+.material-chrome {
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+/* Universal instant press feedback -- respond on pointer-down, not on
+   release. Applied to buttons/links that trigger an action. Kept as a
+   utility class rather than baked into every component's own classList so
+   it can be added/removed without hunting through long className strings. */
+.press-feedback {
+  transition: transform 100ms ease-out;
+}
+.press-feedback:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .press-feedback:active {
+    transform: none;
+  }
+}
