@@ -17,6 +17,7 @@ async function seedCompletedLook(userId: string) {
     .from("clothing_subcategories")
     .select("id")
     .eq("category_id", outfitCategory!.id)
+    .eq("name", "blazer")
     .single();
   const { data: topCategory } = await admin.from("clothing_categories").select("id").eq("name", "top").single();
   const { data: topSub } = await admin

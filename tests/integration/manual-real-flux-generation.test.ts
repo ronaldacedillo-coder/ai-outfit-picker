@@ -83,7 +83,7 @@ describe.skipIf(!RUN)("MANUAL: real FLUX generation (spends real money)", () => 
       const jacketId = await seedGarment(
         "jacket.jpg",
         "outerwear",
-        "business_jacket",
+        "blazer",
         "navy",
         "Navy business jacket with notched lapels and two buttons."
       );

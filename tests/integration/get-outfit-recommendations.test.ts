@@ -49,7 +49,7 @@ describe("getOutfitRecommendationsAction", () => {
     const adminUser = await createTestUser("ADMIN");
     const customerUser = await createTestUser("CUSTOMER");
 
-    const jacketId = await seedItem(adminUser.id, "outerwear", "business_jacket", "navy", 4, "gor1");
+    const jacketId = await seedItem(adminUser.id, "outerwear", "blazer", "navy", 4, "gor1");
     const pickedBottomId = await seedItem(adminUser.id, "bottom", "pants", "burgundy", 2, "gor1");
     const otherBottomId = await seedItem(adminUser.id, "bottom", "pants", "charcoal", 4, "gor1");
 
@@ -99,7 +99,7 @@ describe("getOutfitRecommendationsAction", () => {
 
   it("findMatchingOutfits (backward-compatible wrapper) strips the source tag", async () => {
     const adminUser = await createTestUser("ADMIN");
-    const jacketId = await seedItem(adminUser.id, "outerwear", "business_jacket", "gray", 4, "gor2");
+    const jacketId = await seedItem(adminUser.id, "outerwear", "blazer", "gray", 4, "gor2");
     await seedItem(adminUser.id, "bottom", "pants", "black", 4, "gor2");
 
     const result = await findMatchingOutfits(jacketId, adminUser.client, fakeAI);

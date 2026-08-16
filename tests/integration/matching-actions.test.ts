@@ -42,7 +42,7 @@ async function seedItem(userId: string, categoryName: string, subcategoryName: s
 describe("findMatchingOutfits action", () => {
   it("returns ranked candidates that always include the selected item", async () => {
     const user = await createTestUser();
-    const jacketId = await seedItem(user.id, "outerwear", "business_jacket", "navy", 4);
+    const jacketId = await seedItem(user.id, "outerwear", "blazer", "navy", 4);
     await seedItem(user.id, "top", "long_sleeve_shirt", "white", 4);
     await seedItem(user.id, "bottom", "pants", "charcoal", 4);
 
