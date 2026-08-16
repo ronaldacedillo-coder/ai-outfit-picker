@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { processImageFile } from "@/lib/image/process";
 import { validateImageFile } from "@/lib/image/validate";
 import {
@@ -132,33 +133,91 @@ export function UploadItemCard({
   }
 
   return (
-    <div className="flex gap-4 rounded-xl border border-border bg-surface p-4">
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.97, y: 6 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+      className="flex gap-4 rounded-xl border border-border bg-surface p-4"
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={previewUrl} alt="" className="h-32 w-32 rounded-lg object-cover" />
-      <div className="flex-1">
-        {status === "uploading" && <p className="text-sm text-ink-secondary">Uploading…</p>}
-        {status === "analyzing" && <p className="text-sm text-ink-secondary">Analyzing with AI…</p>}
-        {status === "error" && (
-          <div className="text-sm text-danger">
-            {error}
-            <button className="ml-2 underline underline-offset-2" onClick={handleCancel}>
-              Remove
-            </button>
-          </div>
-        )}
-        {(status === "review" || status === "saving") && (
-          <ReviewForm
-            analysis={analysis}
-            categories={categories}
-            subcategories={subcategories}
-            onSave={handleSave}
-            onReanalyze={handleReanalyze}
-            onCancel={handleCancel}
-            saving={status === "saving"}
-          />
-        )}
-        {status === "saved" && <p className="text-sm text-ink-secondary">Saved to your wardrobe.</p>}
+      <img src={previewUrl} alt="" className="h-32 w-32 shrink-0 rounded-lg object-cover" />
+      <div className="min-w-0 flex-1">
+        <AnimatePresence mode="wait" initial={false}>
+          {status === "uploading" && (
+            <motion.p
+              key="uploading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="text-sm text-ink-secondary"
+            >
+              Uploading…
+            </motion.p>
+          )}
+          {status === "analyzing" && (
+            <motion.p
+              key="analyzing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              exit={{ opacity: 0 }}
+              transition={{ opacity: { duration: 1.4, repeat: Infinity, ease: "easeInOut" } }}
+              className="text-sm text-ink-secondary"
+            >
+              Analyzing with AI…
+            </motion.p>
+          )}
+          {status === "error" && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: "spring", bounce: 0, duration: 0.25 }}
+              className="text-sm text-danger"
+            >
+              {error}
+              <button
+                className="ml-2 underline underline-offset-2 transition-colors duration-150 ease-out hover:text-danger-hover"
+                onClick={handleCancel}
+              >
+                Remove
+              </button>
+            </motion.div>
+          )}
+          {(status === "review" || status === "saving") && (
+            <motion.div
+              key="review"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+            >
+              <ReviewForm
+                analysis={analysis}
+                categories={categories}
+                subcategories={subcategories}
+                onSave={handleSave}
+                onReanalyze={handleReanalyze}
+                onCancel={handleCancel}
+                saving={status === "saving"}
+              />
+            </motion.div>
+          )}
+          {status === "saved" && (
+            <motion.p
+              key="saved"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+              className="text-sm text-ink-secondary"
+            >
+              Saved to your wardrobe.
+            </motion.p>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -9,11 +9,11 @@ export default async function LoginPage({
   const { error } = await searchParams;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6">
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 animate-materialize">
       <div>
         <h1 className="font-display text-3xl font-medium text-ink">Welcome back</h1>
         <p className="mt-1 text-sm text-ink-secondary">
-          Log in to your wardrobe.
+          Log in to style with ARROW.
         </p>
       </div>
 
@@ -55,7 +55,7 @@ export default async function LoginPage({
         </div>
         <button
           type="submit"
-          className="mt-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+          className="mt-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground transition-transform duration-100 ease-out hover:bg-accent-hover active:scale-[0.97]"
         >
           Log in
         </button>

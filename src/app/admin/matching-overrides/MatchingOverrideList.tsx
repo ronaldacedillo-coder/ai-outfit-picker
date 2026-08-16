@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { deleteMatchingOverride, type MatchingOverrideRow } from "./actions";
 import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext } from "@/lib/validation/occasion";
 import type { CategoryOption, SubcategoryOption } from "@/lib/wardrobe/matchCategory";
@@ -59,9 +60,12 @@ export function MatchingOverrideList({
   return (
     <div className="flex flex-col gap-3">
       <h2 className="font-display text-lg font-medium text-ink">Active rules</h2>
-      {rules.map((rule) => (
-        <div
+      {rules.map((rule, index) => (
+        <motion.div
           key={rule.id}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", bounce: 0, duration: 0.3, delay: Math.min(index, 8) * 0.03 }}
           className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex flex-wrap items-center gap-1.5 text-ink">
@@ -98,11 +102,11 @@ export function MatchingOverrideList({
           <button
             onClick={() => handleDelete(rule.id)}
             disabled={deletingId === rule.id}
-            className="w-fit text-xs text-danger underline underline-offset-2 disabled:opacity-60"
+            className="w-fit text-xs text-danger underline underline-offset-2 transition-opacity duration-150 ease-out disabled:opacity-60"
           >
             {deletingId === rule.id ? "Deleting…" : "Delete"}
           </button>
-        </div>
+        </motion.div>
       ))}
     </div>
   );

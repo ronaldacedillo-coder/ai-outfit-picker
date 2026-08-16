@@ -11,14 +11,17 @@ export function ResetPasswordForm() {
 
   if (state && "data" in state) {
     return (
-      <div className="flex flex-col gap-4 text-center">
+      <div className="flex flex-col gap-4 text-center animate-materialize">
         <h2 className="font-display text-xl font-medium text-ink">Password updated successfully.</h2>
         {/* Signs out (and redirects to /login) only now, once the success
             message has already rendered client-side -- see the comment on
             updatePassword for why signing out inside the action itself
             would clobber this view before it ever showed. */}
         <form action={signOut}>
-          <button type="submit" className="text-sm font-medium text-ink underline underline-offset-2">
+          <button
+            type="submit"
+            className="text-sm font-medium text-ink underline underline-offset-2 transition-colors duration-150 ease-out hover:text-accent"
+          >
             Return to Login
           </button>
         </form>
@@ -68,7 +71,7 @@ export function ResetPasswordForm() {
       <button
         type="submit"
         disabled={pending || mismatch}
-        className="mt-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground transition-transform duration-100 ease-out hover:bg-accent-hover active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "Updating…" : "Update password"}
       </button>

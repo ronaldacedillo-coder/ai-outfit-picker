@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import type { ClothingItemRow } from "@/lib/wardrobe/types";
 import type { CategoryOption, SubcategoryOption } from "@/lib/wardrobe/matchCategory";
 import { ClothingCard } from "./ClothingCard";
@@ -42,7 +43,7 @@ export function WardrobeGrid({
   }
 
   const selectClass =
-    "rounded-md border border-border bg-surface px-2.5 py-1.5 text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20";
+    "rounded-md border border-border bg-surface px-2.5 py-1.5 text-ink transition-shadow duration-150 ease-out focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20";
 
   return (
     <section className="flex flex-col gap-4">
@@ -75,7 +76,7 @@ export function WardrobeGrid({
           ))}
         </select>
         <input
-          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-ink placeholder:text-ink-muted transition-shadow duration-150 ease-out focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           placeholder="Filter by color"
           value={colorFilter}
           onChange={(e) => setColorFilter(e.target.value)}
@@ -83,14 +84,17 @@ export function WardrobeGrid({
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-        {filtered.map((item) => (
-          <ClothingCard
-            key={item.id}
-            item={item}
-            readOnly={readOnly}
-            onEdit={readOnly ? undefined : () => setEditing(item)}
-          />
-        ))}
+        <AnimatePresence initial={false}>
+          {filtered.map((item, index) => (
+            <ClothingCard
+              key={item.id}
+              item={item}
+              index={index}
+              readOnly={readOnly}
+              onEdit={readOnly ? undefined : () => setEditing(item)}
+            />
+          ))}
+        </AnimatePresence>
       </div>
 
       {!readOnly && editing && (

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "motion/react";
 import { createMatchingOverride } from "./actions";
 import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, occasionEnum, styleContextEnum } from "@/lib/validation/occasion";
 import type { CategoryOption, SubcategoryOption } from "@/lib/wardrobe/matchCategory";
@@ -44,65 +45,89 @@ function SideFields({
   setSubcategoryId: (v: string) => void;
 }) {
   const filteredSubcategories = subcategories.filter((s) => String(s.categoryId) === categoryId);
+  const layoutId = useId();
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border-subtle p-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-ink">{label}</span>
-        <div className="flex gap-1 text-xs">
-          <button
-            type="button"
-            onClick={() => setMode("item")}
-            className={`rounded px-2 py-1 ${mode === "item" ? "bg-accent text-accent-foreground" : "text-ink-secondary"}`}
-          >
-            Specific item
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("category")}
-            className={`rounded px-2 py-1 ${mode === "category" ? "bg-accent text-accent-foreground" : "text-ink-secondary"}`}
-          >
-            Category
-          </button>
+        <div className="relative flex gap-1 text-xs">
+          {(["item", "category"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setMode(value)}
+              className={`relative rounded px-2 py-1 transition-colors duration-150 ease-out ${
+                mode === value ? "text-accent-foreground" : "text-ink-secondary"
+              }`}
+            >
+              {mode === value && (
+                <motion.span
+                  layoutId={`${layoutId}-pill`}
+                  className="absolute inset-0 rounded bg-accent"
+                  transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
+                />
+              )}
+              <span className="relative">{value === "item" ? "Specific item" : "Category"}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {mode === "item" ? (
-        <select className={selectClass} value={itemId} onChange={(e) => setItemId(e.target.value)}>
-          <option value="">Select an item…</option>
-          {items.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <div className="flex gap-2">
-          <select
+      <AnimatePresence mode="wait" initial={false}>
+        {mode === "item" ? (
+          <motion.select
+            key="item"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
             className={selectClass}
-            value={categoryId}
-            onChange={(e) => {
-              setCategoryId(e.target.value);
-              setSubcategoryId("");
-            }}
+            value={itemId}
+            onChange={(e) => setItemId(e.target.value)}
           >
-            <option value="">Category…</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+            <option value="">Select an item…</option>
+            {items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
               </option>
             ))}
-          </select>
-          <select className={selectClass} value={subcategoryId} onChange={(e) => setSubcategoryId(e.target.value)}>
-            <option value="">Subcategory…</option>
-            {filteredSubcategories.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+          </motion.select>
+        ) : (
+          <motion.div
+            key="category"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="flex gap-2"
+          >
+            <select
+              className={selectClass}
+              value={categoryId}
+              onChange={(e) => {
+                setCategoryId(e.target.value);
+                setSubcategoryId("");
+              }}
+            >
+              <option value="">Category…</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <select className={selectClass} value={subcategoryId} onChange={(e) => setSubcategoryId(e.target.value)}>
+              <option value="">Subcategory…</option>
+              {filteredSubcategories.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -241,7 +266,7 @@ export function MatchingOverrideForm({
       <button
         type="submit"
         disabled={saving}
-        className="w-fit rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-fit rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-transform duration-100 ease-out hover:bg-accent-hover active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {saving ? "Saving…" : "Create rule"}
       </button>

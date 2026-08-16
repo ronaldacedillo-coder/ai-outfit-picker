@@ -29,7 +29,7 @@ export function AppNav({ role, activePath }: { role: UserRole; activePath: strin
             className={
               activePath === link.href
                 ? "text-ink underline decoration-accent decoration-2 underline-offset-4"
-                : "text-ink-secondary transition-colors hover:text-ink"
+                : "text-ink-secondary transition-colors duration-150 ease-out hover:text-ink"
             }
           >
             {link.label}
@@ -39,7 +39,7 @@ export function AppNav({ role, activePath }: { role: UserRole; activePath: strin
       <form action={signOut}>
         <button
           type="submit"
-          className="rounded-md border border-border px-3 py-2 text-sm font-medium text-ink hover:bg-surface-muted"
+          className="rounded-md border border-border px-3 py-2 text-sm font-medium text-ink transition-transform duration-100 ease-out hover:bg-surface-muted active:scale-[0.97]"
         >
           Sign out
         </button>

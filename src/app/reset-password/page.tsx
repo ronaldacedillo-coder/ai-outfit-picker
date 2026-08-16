@@ -21,12 +21,15 @@ export default async function ResetPasswordPage({
   // to parse out of a Supabase error message.
   if (!user || error) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-6 text-center">
+      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-6 text-center animate-materialize">
         <h1 className="font-display text-3xl font-medium text-ink">Link expired</h1>
         <p className="text-sm text-ink-secondary">
           This password reset link is invalid or has expired. Please request a new one.
         </p>
-        <Link href="/forgot-password" className="text-sm font-medium text-ink underline underline-offset-2">
+        <Link
+          href="/forgot-password"
+          className="text-sm font-medium text-ink underline underline-offset-2 transition-colors duration-150 ease-out hover:text-accent"
+        >
           Request a new reset link
         </Link>
       </main>
@@ -34,7 +37,7 @@ export default async function ResetPasswordPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6">
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 animate-materialize">
       <div>
         <h1 className="font-display text-3xl font-medium text-ink">Set a new password</h1>
       </div>
