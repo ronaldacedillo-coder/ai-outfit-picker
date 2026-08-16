@@ -8,6 +8,7 @@ import { getOutfitImageUrl } from "@/app/dashboard/outfit-picker-actions";
 import { generateLookTitle } from "@/lib/looks/lookTitle";
 import { deriveLookStyle } from "@/lib/looks/lookStyle";
 import type { LookItemSummary } from "@/lib/looks/types";
+import { requireUser } from "@/lib/auth/requireUser";
 
 type ActionResult<T> = { data: T } | { error: string };
 
@@ -26,13 +27,6 @@ function safeRevalidatePath(path: string) {
 // architecture principle: matching and image-generation logic stay in
 // matching-actions.ts / outfit-actions.ts, never duplicated here).
 const LOOKS_LIMIT = 30;
-
-async function requireUser(supabase: SupabaseClient) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
-}
 
 interface OutfitItemQueryRow {
   clothing_item_id: string;

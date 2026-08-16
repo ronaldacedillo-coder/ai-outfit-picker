@@ -7,15 +7,11 @@ import { createClient } from "@/lib/supabase/server";
 import { getAIProvider, getStorageProvider } from "@/lib/providers";
 import type { AIProvider } from "@/lib/providers/types";
 import { clothingItemInputSchema, type ClothingItemInput } from "@/lib/validation/clothing";
+import { requireRole } from "@/lib/auth/requireRole";
 
 type ActionResult<T> = { data: T } | { error: string };
 
-async function requireUser(supabase: SupabaseClient) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
-}
+const NOT_AUTHORIZED: ActionResult<never> = { error: "Not authorized." };
 
 // revalidatePath requires a live Next.js request context (an internal
 // AsyncLocalStorage store). That context doesn't exist when these actions
@@ -36,8 +32,9 @@ export async function uploadClothingPhoto(
   injectedClient?: SupabaseClient
 ): Promise<ActionResult<{ path: string }>> {
   const supabase = injectedClient ?? (await createClient());
-  const user = await requireUser(supabase);
-  if (!user) return { error: "You need to sign in again." };
+  const auth = await requireRole(supabase, ["ADMIN"]);
+  if (!auth) return NOT_AUTHORIZED;
+  const user = auth.user;
 
   const path = `${user.id}/${randomUUID()}.${fileExt}`;
   try {
@@ -55,8 +52,9 @@ export async function analyzeClothingPhoto(
   injectedAI?: AIProvider
 ): Promise<ActionResult<{ analysis: Awaited<ReturnType<AIProvider["analyzeClothingImage"]>> }>> {
   const supabase = injectedClient ?? (await createClient());
-  const user = await requireUser(supabase);
-  if (!user) return { error: "You need to sign in again." };
+  const auth = await requireRole(supabase, ["ADMIN"]);
+  if (!auth) return NOT_AUTHORIZED;
+  const user = auth.user;
   if (!path.startsWith(`${user.id}/`)) return { error: "Invalid photo reference." };
 
   try {
@@ -89,8 +87,9 @@ export async function saveClothingItem(
   injectedClient?: SupabaseClient
 ): Promise<ActionResult<{ id: string }>> {
   const supabase = injectedClient ?? (await createClient());
-  const user = await requireUser(supabase);
-  if (!user) return { error: "You need to sign in again." };
+  const auth = await requireRole(supabase, ["ADMIN"]);
+  if (!auth) return NOT_AUTHORIZED;
+  const user = auth.user;
 
   const parsed = clothingItemInputSchema.safeParse(input);
   if (!parsed.success) return { error: "Some details are missing or invalid." };
@@ -128,12 +127,15 @@ export async function updateClothingItem(
   injectedClient?: SupabaseClient
 ): Promise<ActionResult<{ id: string }>> {
   const supabase = injectedClient ?? (await createClient());
-  const user = await requireUser(supabase);
-  if (!user) return { error: "You need to sign in again." };
+  const auth = await requireRole(supabase, ["ADMIN"]);
+  if (!auth) return NOT_AUTHORIZED;
 
   const parsed = clothingItemInputSchema.safeParse(input);
   if (!parsed.success) return { error: "Some details are missing or invalid." };
 
+  // No .eq("user_id", ...) filter here: clothing_items is a shared catalog
+  // now, and RLS (migration 0005) already scopes UPDATE to any ADMIN, not
+  // just the admin who originally uploaded a given item.
   const { data, error } = await supabase
     .from("clothing_items")
     .update({
@@ -150,7 +152,6 @@ export async function updateClothingItem(
       user_edited: true,
     })
     .eq("id", id)
-    .eq("user_id", user.id)
     .select("id")
     .single();
 
@@ -165,22 +166,17 @@ export async function deleteClothingItem(
   injectedClient?: SupabaseClient
 ): Promise<ActionResult<{ id: string }>> {
   const supabase = injectedClient ?? (await createClient());
-  const user = await requireUser(supabase);
-  if (!user) return { error: "You need to sign in again." };
+  const auth = await requireRole(supabase, ["ADMIN"]);
+  if (!auth) return NOT_AUTHORIZED;
 
   const { data: item, error: fetchError } = await supabase
     .from("clothing_items")
     .select("image_url")
     .eq("id", id)
-    .eq("user_id", user.id)
     .single();
   if (fetchError || !item) return { error: "Item not found." };
 
-  const { error: deleteError } = await supabase
-    .from("clothing_items")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
+  const { error: deleteError } = await supabase.from("clothing_items").delete().eq("id", id);
   if (deleteError) return { error: "Couldn't delete this item — please try again." };
 
   try {
@@ -196,8 +192,8 @@ export async function deleteClothingItem(
 
 export async function cancelClothingUpload(path: string, injectedClient?: SupabaseClient): Promise<void> {
   const supabase = injectedClient ?? (await createClient());
-  const user = await requireUser(supabase);
-  if (!user || !path.startsWith(`${user.id}/`)) return;
+  const auth = await requireRole(supabase, ["ADMIN"]);
+  if (!auth || !path.startsWith(`${auth.user.id}/`)) return;
   try {
     const storage = getStorageProvider(supabase);
     await storage.deleteImage(path);

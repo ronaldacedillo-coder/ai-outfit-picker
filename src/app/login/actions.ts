@@ -36,24 +36,6 @@ export async function login(formData: FormData) {
   redirect("/dashboard");
 }
 
-export async function signup(formData: FormData) {
-  const supabase = await createClient();
-
-  const { error } = await supabase.auth.signUp({
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-    options: {
-      data: { display_name: formData.get("displayName") as string },
-    },
-  });
-
-  if (error) {
-    redirect(`/signup?error=${encodeURIComponent(error.message)}`);
-  }
-
-  redirect("/signup?check-email=1");
-}
-
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();

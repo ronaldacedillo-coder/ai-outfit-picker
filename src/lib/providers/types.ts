@@ -40,8 +40,10 @@ export interface OutfitGarmentInput {
   category: string;
   subcategory: string;
   primaryColor: string;
+  primaryColorHex?: string; // enables hex-anchored color-fidelity prompt lines when available
   pattern: string;
   style: string;
+  visualDetails?: Record<string, string> | null; // collar, lapel, sleeve, silhouette, etc. (from ai_analysis)
 }
 
 /**
@@ -54,6 +56,8 @@ export interface ImageGenProvider {
   generateOutfitVisualization(input: {
     garments: OutfitGarmentInput[];
     seed?: number;
+    occasion?: string;
+    styleContext?: string;
   }): Promise<{
     imageUrl: string; // temporary, provider-hosted -- caller downloads and re-stores it
     requestId: string;

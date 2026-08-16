@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getStorageProvider } from "@/lib/providers";
-import { findMatchingOutfits } from "@/app/dashboard/matching-actions";
+import { getOutfitRecommendationsAction } from "@/app/dashboard/matching-actions";
 import { OutfitPickerView } from "@/components/outfit-picker/OutfitPickerView";
 import type { DisplayCandidate } from "@/components/outfit-picker/types";
 
@@ -28,7 +28,7 @@ export default async function OutfitPickerPage({
     .eq("id", itemId)
     .single();
 
-  const result = await findMatchingOutfits(itemId);
+  const result = await getOutfitRecommendationsAction(itemId);
 
   if (!itemRow || "error" in result) {
     return (
@@ -59,6 +59,7 @@ export default async function OutfitPickerPage({
       scoreBreakdown: candidate.scoreBreakdown,
       explanation: candidate.explanation,
       conflicts: candidate.conflicts,
+      source: candidate.source,
       garments: await Promise.all(
         candidate.garments.map(async (g) => ({
           id: g.id,

@@ -3,15 +3,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getStorageProvider } from "@/lib/providers";
+import { requireUser } from "@/lib/auth/requireUser";
 
 type ActionResult<T> = { data: T } | { error: string };
-
-async function requireUser(supabase: SupabaseClient) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
-}
 
 // Reads only -- resolves a signed URL for an already-generated outfit image.
 // Does not touch the FLUX generation path in outfit-actions.ts.

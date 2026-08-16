@@ -67,6 +67,22 @@ describe("dashboard auth guard (proxy.ts -> updateSession)", () => {
     expect(new URL(response.headers.get("location")!).pathname).toBe("/login");
   });
 
+  it("redirects an unauthenticated /catalog request to /login", async () => {
+    const response = await updateSession(requestFor("/catalog"));
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get("location")!).pathname).toBe("/login");
+  });
+
+  it("lets an authenticated request reach /catalog without a redirect (role gating happens at the page level)", async () => {
+    const { cookieHeader, cleanup } = await createAuthenticatedSession();
+    try {
+      const response = await updateSession(requestFor("/catalog", cookieHeader));
+      expect(response.headers.get("location")).toBeNull();
+    } finally {
+      await cleanup();
+    }
+  });
+
   it("leaves public routes accessible without a session", async () => {
     const response = await updateSession(requestFor("/login"));
     expect(response.headers.get("location")).toBeNull();

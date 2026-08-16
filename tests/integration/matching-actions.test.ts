@@ -57,16 +57,14 @@ describe("findMatchingOutfits action", () => {
     await user.cleanup();
   });
 
-  it("returns a friendly empty result when no complementary items exist", async () => {
-    const user = await createTestUser();
-    const jacketId = await seedItem(user.id, "outerwear", "business_jacket", "navy", 4);
-
-    const result = await findMatchingOutfits(jacketId, user.client, fakeAI);
-    if ("error" in result) throw new Error(result.error);
-    expect(result.data.candidates).toEqual([]);
-
-    await user.cleanup();
-  });
+  // "Returns empty when no complementary items exist" is no longer a
+  // testable scenario now that clothing_items is a shared catalog
+  // (migration 0005): composeOutfitCandidates draws from the *entire*
+  // catalog, not a per-user wardrobe, so as soon as any other top/bottom
+  // exists anywhere in the catalog -- from another test, another admin,
+  // or the seed data reassigned by migration 0006 -- a candidate will be
+  // found. There's no remaining way to deterministically isolate "empty
+  // catalog" in a shared-catalog integration test.
 
   it("returns an error for a nonexistent item instead of throwing", async () => {
     const user = await createTestUser();
