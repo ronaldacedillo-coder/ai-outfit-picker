@@ -14,26 +14,26 @@
      form controls (date pickers, scrollbars) don't render a dark skin. */
   color-scheme: light only;
 
-  --background: #faf6ee; /* warm ivory page background */
+  --background: #fcfbfa; /* near-white page background, faint neutral warmth */
   --foreground: #211d18; /* deep charcoal body text */
 
-  --surface: #ffffff; /* cards, modals -- sits "brighter" than the ivory page */
-  --surface-muted: #f2ece0; /* hover states, image placeholders, subtle panels */
+  --surface: #ffffff; /* cards, modals -- pure white, sits just above the page */
+  --surface-muted: #f5f4f2; /* hover states, image placeholders, subtle panels */
 
-  --border: #e4dccb; /* default hairline border */
-  --border-subtle: #eee8db; /* lighter separator, dividers */
+  --border: #e7e5e1; /* default hairline border */
+  --border-subtle: #f0efec; /* lighter separator, dividers */
 
   --text-primary: #211d18;
-  --text-secondary: #6b6355; /* descriptions, timestamps, helper text -- ~5:1 contrast */
-  --text-muted: #8f8574; /* placeholders and decorative-only text, not for content */
+  --text-secondary: #6b6864; /* descriptions, timestamps, helper text -- ~5:1 contrast */
+  --text-muted: #8c8a85; /* placeholders and decorative-only text, not for content */
 
   --accent: #211d18; /* charcoal -- primary buttons, links, focus ring */
   --accent-hover: #3a342c;
-  --accent-foreground: #fbf9f4;
+  --accent-foreground: #fcfbfa;
 
   --danger: #9a4130; /* muted brick/terracotta, not a saturated red */
   --danger-hover: #7e362a;
-  --danger-foreground: #fbf9f4;
+  --danger-foreground: #fcfbfa;
   --danger-surface: #f7e9e5;
 }
 

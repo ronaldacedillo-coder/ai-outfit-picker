@@ -38,7 +38,7 @@ function WeaveSwatch() {
           <line x1="0" y1="0" x2="0" y2="18" stroke="#211d18" strokeOpacity="0.08" strokeWidth="6" />
         </pattern>
       </defs>
-      <rect x="4" y="4" width="352" height="452" rx="10" fill="#faf6ee" stroke="#e4dccb" strokeWidth="2" />
+      <rect x="4" y="4" width="352" height="452" rx="10" fill="#fcfbfa" stroke="#e7e5e1" strokeWidth="2" />
       <rect x="4" y="4" width="352" height="452" rx="10" fill="url(#weave-a)" />
       <rect x="4" y="4" width="352" height="452" rx="10" fill="url(#weave-b)" />
       <line
