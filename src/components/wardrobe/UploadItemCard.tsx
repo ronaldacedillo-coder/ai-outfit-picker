@@ -141,7 +141,11 @@ export function UploadItemCard({
       className="flex gap-4 rounded-xl border border-border bg-surface p-4"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={previewUrl} alt="" className="h-32 w-32 shrink-0 rounded-lg object-cover" />
+      <img
+        src={previewUrl}
+        alt={`Preview of ${file.name}`}
+        className="h-32 w-32 shrink-0 rounded-lg object-cover"
+      />
       <div className="min-w-0 flex-1">
         <AnimatePresence mode="wait" initial={false}>
           {status === "uploading" && (

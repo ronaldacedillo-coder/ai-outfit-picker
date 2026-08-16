@@ -33,7 +33,7 @@ export function ClothingCard({
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ type: "spring", bounce: 0, duration: 0.35, delay: Math.min(index, 8) * 0.03 }}
       whileHover={{ y: -2 }}
-      className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3 shadow-sm transition-shadow duration-200 ease-out hover:shadow-md"
+      className="flex flex-col gap-2 rounded-xl bg-surface p-3 shadow-sm transition-shadow duration-200 ease-out hover:shadow-md"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

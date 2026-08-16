@@ -21,8 +21,8 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "AI Outfit Picker",
-  description: "Your personal AI stylist that knows the clothes you actually own.",
+  title: "AI Outfit Picker — ARROW Styling",
+  description: "Browse the ARROW catalog, get AI-assisted outfit recommendations, and generate real styled looks.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
