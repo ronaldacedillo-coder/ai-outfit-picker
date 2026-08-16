@@ -137,7 +137,7 @@ describe("GeminiAIProvider retry behavior", () => {
     expect(generateContent).toHaveBeenCalledTimes(2);
   });
 
-  it("retries once on a 429 (rate limit) and gives up if it fails again", async () => {
+  it("retries on a 429 (rate limit) and gives up after exhausting all attempts", async () => {
     const { GoogleGenAI } = await import("@google/genai");
     const generateContent = vi.fn().mockRejectedValue(new MockApiError(429, "rate limited"));
     (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
@@ -148,7 +148,27 @@ describe("GeminiAIProvider retry behavior", () => {
     await expect(provider.analyzeClothingImage("https://example.com/photo.jpg")).rejects.toThrow(
       /rate limited/
     );
-    expect(generateContent).toHaveBeenCalledTimes(2);
+    // MAX_ATTEMPTS is 3 (bumped from 2 after live testing showed
+    // back-to-back transient failures under sustained demand weren't rare
+    // enough to leave uncovered -- see the comment in gemini.ts).
+    expect(generateContent).toHaveBeenCalledTimes(3);
+  });
+
+  it("succeeds on the third attempt after two transient failures", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    const generateContent = vi
+      .fn()
+      .mockRejectedValueOnce(new MockApiError(503, "high demand"))
+      .mockRejectedValueOnce(new MockApiError(429, "rate limited"))
+      .mockResolvedValueOnce({ text: validJson });
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return { models: { generateContent } };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    const result = await provider.analyzeClothingImage("https://example.com/photo.jpg");
+    expect(result.category).toBe("top");
+    expect(generateContent).toHaveBeenCalledTimes(3);
   });
 
   it("does not retry a non-retryable error (e.g. 401 invalid API key)", async () => {

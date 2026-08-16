@@ -20,6 +20,14 @@ import { outfitMatchExplanationSchema } from "@/lib/validation/outfitMatch";
 // and succeeds intermittently on this app's actual (image + structured
 // output) request under current demand -- hence the retry below, not just
 // the model swap.
+//
+// gemini-3.6-flash was directly tested as an alternative when 3.7 started
+// showing more frequent transient failures in production -- rejected: a
+// failing request against 3.6 took ~59s to return its 503, versus 3.7's
+// sub-1s failures. A model that fails slowly is worse than one that fails
+// fast and retries, since it risks exhausting the serverless function's own
+// execution timeout instead of cleanly recovering within it. Confirmed via
+// direct side-by-side testing against the live API, not assumed.
 const MODEL = "gemini-3.7-flash";
 
 // 503 (UNAVAILABLE, "high demand") and 429 (RESOURCE_EXHAUSTED, rate limit)
@@ -28,7 +36,13 @@ const MODEL = "gemini-3.7-flash";
 // Everything else (401/403 auth, 404 model-not-found, 400 bad request) is a
 // persistent failure that a retry can't fix, so it fails immediately.
 const RETRYABLE_STATUSES = new Set([503, 429]);
-const MAX_ATTEMPTS = 2;
+// Bumped from 2 -> 3 after live testing showed attempt 1 failing (429 or
+// 503) and attempt 2 succeeding within ~3s was common, but not guaranteed --
+// two back-to-back failures under sustained demand aren't rare enough to
+// leave uncovered. Each attempt fails fast (sub-1s to a few seconds) when it
+// does fail, so a third attempt adds well under the delay budget of one slow
+// request, not a meaningfully worse worst case.
+const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 750;
 
 function sleep(ms: number) {
