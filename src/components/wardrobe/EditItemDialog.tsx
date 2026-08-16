@@ -45,10 +45,10 @@ export function EditItemDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white p-4">
-        <h2 className="mb-3 text-lg font-semibold">Edit item</h2>
-        {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-ink/40 p-4">
+      <div className="w-full max-w-lg rounded-xl border border-border-subtle bg-surface p-5 shadow-lg">
+        <h2 className="mb-3 font-display text-xl font-medium text-ink">Edit item</h2>
+        {error && <p className="mb-2 text-sm text-danger">{error}</p>}
         <ReviewForm
           analysis={null}
           categories={categories}

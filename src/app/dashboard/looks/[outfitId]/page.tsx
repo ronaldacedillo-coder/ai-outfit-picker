@@ -15,10 +15,10 @@ export default async function LookDetailPage({
   if ("error" in result) {
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-6 py-16">
-        <Link href="/dashboard/looks" className="text-sm text-stone-500 underline">
+        <Link href="/dashboard/looks" className="text-sm text-ink-secondary underline underline-offset-2">
           ← Back to My Looks
         </Link>
-        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{result.error}</p>
+        <p className="rounded-md bg-danger-surface px-4 py-3 text-sm text-danger">{result.error}</p>
       </main>
     );
   }
@@ -26,10 +26,10 @@ export default async function LookDetailPage({
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-16">
       <div>
-        <Link href="/dashboard/looks" className="text-sm text-stone-500 underline">
+        <Link href="/dashboard/looks" className="text-sm text-ink-secondary underline underline-offset-2">
           ← Back to My Looks
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-stone-900">{result.data.look.title}</h1>
+        <h1 className="mt-2 font-display text-2xl font-medium text-ink">{result.data.look.title}</h1>
       </div>
       <LookDetailView look={result.data.look} />
     </main>

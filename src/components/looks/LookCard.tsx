@@ -10,9 +10,9 @@ export function LookCard({ look }: { look: LookSummary }) {
   return (
     <Link
       href={`/dashboard/looks/${look.id}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition-shadow duration-200 ease-out hover:shadow-md"
+      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-shadow duration-200 ease-out hover:shadow-md"
     >
-      <div className="aspect-[3/4] w-full bg-stone-50">
+      <div className="aspect-[3/4] w-full bg-surface-muted">
         {look.status === "completed" && look.imageSignedUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -22,7 +22,7 @@ export function LookCard({ look }: { look: LookSummary }) {
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center">
-            <span className="text-sm font-medium text-stone-500">
+            <span className="text-sm font-medium text-ink-secondary">
               {look.status === "failed" ? "Generation failed" : "Still generating…"}
             </span>
           </div>
@@ -30,8 +30,8 @@ export function LookCard({ look }: { look: LookSummary }) {
       </div>
 
       <div className="flex flex-col gap-1.5 p-4">
-        <h3 className="text-sm font-semibold text-stone-900">{look.title}</h3>
-        <p className="line-clamp-1 text-xs text-stone-500">{look.itemLabels.join(" · ")}</p>
+        <h3 className="font-display text-sm font-medium text-ink">{look.title}</h3>
+        <p className="line-clamp-1 text-xs text-ink-secondary">{look.itemLabels.join(" · ")}</p>
 
         <div className="mt-1 flex items-center justify-between">
           {look.compatibilityScore !== null ? (
@@ -43,7 +43,7 @@ export function LookCard({ look }: { look: LookSummary }) {
           ) : (
             <span />
           )}
-          <span className="text-[11px] text-stone-400">{formatDate(look.createdAt)}</span>
+          <span className="text-[11px] text-ink-muted">{formatDate(look.createdAt)}</span>
         </div>
       </div>
     </Link>

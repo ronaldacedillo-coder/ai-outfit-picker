@@ -90,19 +90,22 @@ export function ReviewForm({
     });
   }
 
+  const fieldClass =
+    "rounded-md border border-border bg-surface px-2.5 py-1.5 text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-ink-muted";
+
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-neutral-200 p-4">
+    <div className="flex flex-col gap-4 rounded-xl border border-border p-4">
       {isFreshManualEntry && (
-        <p className="text-sm text-amber-600">
+        <p className="rounded-md bg-surface-muted px-3 py-2 text-sm text-ink-secondary">
           AI analysis unavailable — enter the details below manually.
         </p>
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-ink">
           Category
           <select
-            className="rounded border border-neutral-300 px-2 py-1"
+            className={fieldClass}
             value={value.categoryId ?? ""}
             onChange={(e) =>
               setValue((v) => ({ ...v, categoryId: Number(e.target.value) || null, subcategoryId: null }))
@@ -115,10 +118,10 @@ export function ReviewForm({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-ink">
           Subcategory
           <select
-            className="rounded border border-neutral-300 px-2 py-1"
+            className={fieldClass}
             value={value.subcategoryId ?? ""}
             onChange={(e) => setValue((v) => ({ ...v, subcategoryId: Number(e.target.value) || null }))}
             disabled={!value.categoryId}
@@ -130,19 +133,19 @@ export function ReviewForm({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-ink">
           Primary color
           <input
-            className="rounded border border-neutral-300 px-2 py-1"
+            className={fieldClass}
             value={value.primaryColor}
             onChange={(e) => setValue((v) => ({ ...v, primaryColor: e.target.value }))}
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-ink">
           Pattern
           <select
-            className="rounded border border-neutral-300 px-2 py-1"
+            className={fieldClass}
             value={value.pattern}
             onChange={(e) => setValue((v) => ({ ...v, pattern: e.target.value as ReviewFormValue["pattern"] }))}
           >
@@ -152,10 +155,10 @@ export function ReviewForm({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-ink">
           Style
           <select
-            className="rounded border border-neutral-300 px-2 py-1"
+            className={fieldClass}
             value={value.style}
             onChange={(e) => setValue((v) => ({ ...v, style: e.target.value as ReviewFormValue["style"] }))}
           >
@@ -165,23 +168,23 @@ export function ReviewForm({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-ink">
           Formality (1-5)
           <input
             type="number"
             min={1}
             max={5}
-            className="rounded border border-neutral-300 px-2 py-1"
+            className={fieldClass}
             value={value.formalityLevel}
             onChange={(e) => setValue((v) => ({ ...v, formalityLevel: Number(e.target.value) }))}
           />
         </label>
       </div>
 
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1 text-sm text-ink">
         Description
         <textarea
-          className="rounded border border-neutral-300 px-2 py-1"
+          className={fieldClass}
           value={value.description}
           onChange={(e) => setValue((v) => ({ ...v, description: e.target.value }))}
         />
@@ -190,18 +193,26 @@ export function ReviewForm({
       <div className="flex gap-2">
         <button
           type="button"
-          className="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           onClick={submit}
           disabled={saving || !value.categoryId || !value.subcategoryId}
         >
           {saving ? "Saving…" : "Save"}
         </button>
         {onReanalyze && (
-          <button type="button" className="rounded-md border border-neutral-300 px-3 py-2 text-sm" onClick={onReanalyze}>
+          <button
+            type="button"
+            className="rounded-md border border-border px-3 py-2 text-sm text-ink hover:bg-surface-muted"
+            onClick={onReanalyze}
+          >
             Re-analyze
           </button>
         )}
-        <button type="button" className="rounded-md border border-neutral-300 px-3 py-2 text-sm" onClick={onCancel}>
+        <button
+          type="button"
+          className="rounded-md border border-border px-3 py-2 text-sm text-ink hover:bg-surface-muted"
+          onClick={onCancel}
+        >
           Cancel
         </button>
       </div>

@@ -54,17 +54,17 @@ export function LookDetailView({ look }: { look: LookDetail }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+      <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-muted">
         {look.status === "completed" && look.imageSignedUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={look.imageSignedUrl} alt={look.title} className="w-full object-contain" />
         ) : (
           <div className="flex flex-col items-center gap-2 px-6 py-20 text-center">
-            <p className="text-sm font-medium text-stone-600">
+            <p className="text-sm font-medium text-ink-secondary">
               {look.status === "failed" ? "This generation failed." : "This outfit is still generating…"}
             </p>
             {look.status === "failed" && look.generationError && (
-              <p className="text-xs text-stone-400">Something went wrong on our end — no need to worry about the details.</p>
+              <p className="text-xs text-ink-muted">Something went wrong on our end — no need to worry about the details.</p>
             )}
           </div>
         )}
@@ -75,7 +75,7 @@ export function LookDetailView({ look }: { look: LookDetail }) {
           <Link
             key={item.id}
             href="/dashboard"
-            className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium uppercase tracking-wide text-stone-600 transition-colors duration-150 ease-out hover:bg-stone-200"
+            className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium uppercase tracking-wide text-ink-secondary transition-colors duration-150 ease-out hover:bg-border"
           >
             {item.primaryColor} {item.subcategory.replace(/_/g, " ")}
           </Link>
@@ -91,19 +91,19 @@ export function LookDetailView({ look }: { look: LookDetail }) {
           </span>
           {look.aiExplanation && (
             <div>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-500">Why this works</h2>
-              <p className="mt-1 text-sm text-stone-700">{look.aiExplanation}</p>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-secondary">Why this works</h2>
+              <p className="mt-1 text-sm text-ink-secondary">{look.aiExplanation}</p>
             </div>
           )}
         </div>
       )}
 
-      {error && <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded-md bg-danger-surface px-4 py-3 text-sm text-danger">{error}</p>}
 
       <div className="flex flex-wrap gap-3">
         <Link
           href="/dashboard/looks"
-          className="rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 transition-transform duration-150 ease-out hover:bg-stone-50 active:scale-[0.97]"
+          className="rounded-md border border-border px-4 py-2 text-sm font-medium text-ink transition-transform duration-150 ease-out hover:bg-surface-muted active:scale-[0.97]"
         >
           Back to My Looks
         </Link>
@@ -111,7 +111,7 @@ export function LookDetailView({ look }: { look: LookDetail }) {
           <button
             onClick={handleGenerateAgain}
             disabled={generating}
-            className="rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white transition-transform duration-150 ease-out hover:bg-stone-800 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-transform duration-150 ease-out hover:bg-accent-hover active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generating ? "Generating…" : look.status === "failed" ? "Retry" : "Generate Again"}
           </button>
@@ -120,14 +120,14 @@ export function LookDetailView({ look }: { look: LookDetail }) {
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition-transform duration-150 ease-out hover:bg-red-50 active:scale-[0.97]"
+            className="rounded-md border border-danger/30 px-4 py-2 text-sm font-medium text-danger transition-transform duration-150 ease-out hover:bg-danger-surface active:scale-[0.97]"
           >
             {deleting ? "Deleting…" : "Confirm delete"}
           </button>
         ) : (
           <button
             onClick={() => setConfirmingDelete(true)}
-            className="rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-red-700 transition-transform duration-150 ease-out hover:bg-red-50 active:scale-[0.97]"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-danger transition-transform duration-150 ease-out hover:bg-danger-surface active:scale-[0.97]"
           >
             Delete Look
           </button>

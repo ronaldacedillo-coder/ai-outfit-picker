@@ -101,16 +101,18 @@ export function UploadItemCard({
   }
 
   return (
-    <div className="flex gap-4 rounded-lg border border-neutral-200 p-4">
+    <div className="flex gap-4 rounded-xl border border-border bg-surface p-4">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={previewUrl} alt="" className="h-32 w-32 rounded object-cover" />
+      <img src={previewUrl} alt="" className="h-32 w-32 rounded-lg object-cover" />
       <div className="flex-1">
-        {status === "uploading" && <p className="text-sm text-neutral-500">Uploading…</p>}
-        {status === "analyzing" && <p className="text-sm text-neutral-500">Analyzing with AI…</p>}
+        {status === "uploading" && <p className="text-sm text-ink-secondary">Uploading…</p>}
+        {status === "analyzing" && <p className="text-sm text-ink-secondary">Analyzing with AI…</p>}
         {status === "error" && (
-          <div className="text-sm text-red-600">
+          <div className="text-sm text-danger">
             {error}
-            <button className="ml-2 underline" onClick={handleCancel}>Remove</button>
+            <button className="ml-2 underline underline-offset-2" onClick={handleCancel}>
+              Remove
+            </button>
           </div>
         )}
         {(status === "review" || status === "saving") && (
@@ -124,7 +126,7 @@ export function UploadItemCard({
             saving={status === "saving"}
           />
         )}
-        {status === "saved" && <p className="text-sm text-green-600">Saved to your wardrobe.</p>}
+        {status === "saved" && <p className="text-sm text-ink-secondary">Saved to your wardrobe.</p>}
       </div>
     </div>
   );

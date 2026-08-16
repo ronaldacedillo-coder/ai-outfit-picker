@@ -32,12 +32,12 @@ export function LookGrid({ looks }: { looks: LookSummary[] }) {
 
   if (looks.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-xl bg-stone-50 px-6 py-20 text-center">
-        <h2 className="text-lg font-semibold text-stone-900">Your Lookbook is empty</h2>
-        <p className="text-sm text-stone-600">Create your first outfit from your wardrobe.</p>
+      <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border bg-surface-muted px-6 py-20 text-center">
+        <h2 className="font-display text-lg font-medium text-ink">Your Lookbook is empty</h2>
+        <p className="text-sm text-ink-secondary">Create your first outfit from your wardrobe.</p>
         <Link
           href="/dashboard"
-          className="rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white transition-transform duration-150 ease-out hover:bg-stone-800 active:scale-[0.97]"
+          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-transform duration-150 ease-out hover:bg-accent-hover active:scale-[0.97]"
         >
           Find an Outfit
         </Link>
@@ -45,11 +45,14 @@ export function LookGrid({ looks }: { looks: LookSummary[] }) {
     );
   }
 
+  const selectClass =
+    "rounded-md border border-border bg-surface px-2.5 py-1.5 text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20";
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-3 text-sm">
         <select
-          className="rounded border border-stone-300 px-2 py-1"
+          className={selectClass}
           value={styleFilter}
           onChange={(e) => setStyleFilter(e.target.value as StyleFilter)}
         >
@@ -60,11 +63,7 @@ export function LookGrid({ looks }: { looks: LookSummary[] }) {
             </option>
           ))}
         </select>
-        <select
-          className="rounded border border-stone-300 px-2 py-1"
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SortOption)}
-        >
+        <select className={selectClass} value={sort} onChange={(e) => setSort(e.target.value as SortOption)}>
           <option value="newest">Newest</option>
           <option value="oldest">Oldest</option>
           <option value="highest_match">Highest match</option>
@@ -72,7 +71,7 @@ export function LookGrid({ looks }: { looks: LookSummary[] }) {
       </div>
 
       {visible.length === 0 ? (
-        <p className="rounded-xl bg-stone-50 px-6 py-10 text-center text-sm text-stone-600">
+        <p className="rounded-xl border border-dashed border-border bg-surface-muted px-6 py-10 text-center text-sm text-ink-secondary">
           No looks match this filter yet.
         </p>
       ) : (

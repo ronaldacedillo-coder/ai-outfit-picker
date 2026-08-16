@@ -15,19 +15,21 @@ export const QUALITY_LABEL: Record<QualityTier, string> = {
 };
 
 // Tailwind classes only -- no raw score is ever shown in the UI (product
-// direction: "Great match," not "score: 87").
+// direction: "Great match," not "score: 87"). Muted, editorial tones rather
+// than default-bright Tailwind status colors, kept just distinct enough to
+// read as a real hierarchy (excellent -> possible).
 export const QUALITY_BADGE: Record<QualityTier, string> = {
-  excellent: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  very_good: "bg-teal-50 text-teal-800 ring-teal-200",
-  good: "bg-amber-50 text-amber-800 ring-amber-200",
-  possible: "bg-stone-100 text-stone-700 ring-stone-300",
+  excellent: "bg-emerald-50 text-emerald-900 ring-emerald-800/20",
+  very_good: "bg-amber-50 text-amber-900 ring-amber-800/20",
+  good: "bg-surface-muted text-ink-secondary ring-border",
+  possible: "bg-surface-muted text-ink-muted ring-border",
 };
 
 export const QUALITY_METER_FILL: Record<QualityTier, string> = {
-  excellent: "bg-emerald-600",
-  very_good: "bg-teal-600",
-  good: "bg-amber-600",
-  possible: "bg-stone-500",
+  excellent: "bg-emerald-800",
+  very_good: "bg-amber-800",
+  good: "bg-ink-secondary",
+  possible: "bg-ink-muted",
 };
 
 // A five-tick gauge -- ticks filled scales with the score without ever

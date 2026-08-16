@@ -32,14 +32,21 @@ export function WardrobeGrid({
   }, [items, categoryFilter, styleFilter, formalityFilter, colorFilter]);
 
   if (items.length === 0) {
-    return <p className="text-sm text-neutral-500">Your wardrobe is empty — upload your first item above.</p>;
+    return (
+      <p className="rounded-xl border border-dashed border-border bg-surface-muted px-6 py-10 text-center text-sm text-ink-secondary">
+        Your wardrobe is empty — upload your first item above.
+      </p>
+    );
   }
+
+  const selectClass =
+    "rounded-md border border-border bg-surface px-2.5 py-1.5 text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20";
 
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-3 text-sm">
         <select
-          className="rounded border border-neutral-300 px-2 py-1"
+          className={selectClass}
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
         >
@@ -48,7 +55,7 @@ export function WardrobeGrid({
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
-        <select className="rounded border border-neutral-300 px-2 py-1" value={styleFilter} onChange={(e) => setStyleFilter(e.target.value)}>
+        <select className={selectClass} value={styleFilter} onChange={(e) => setStyleFilter(e.target.value)}>
           <option value="all">All styles</option>
           <option value="business_formal">business formal</option>
           <option value="business_casual">business casual</option>
@@ -56,7 +63,7 @@ export function WardrobeGrid({
           <option value="casual">casual</option>
         </select>
         <select
-          className="rounded border border-neutral-300 px-2 py-1"
+          className={selectClass}
           value={formalityFilter}
           onChange={(e) => setFormalityFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
         >
@@ -66,7 +73,7 @@ export function WardrobeGrid({
           ))}
         </select>
         <input
-          className="rounded border border-neutral-300 px-2 py-1"
+          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           placeholder="Filter by color"
           value={colorFilter}
           onChange={(e) => setColorFilter(e.target.value)}
