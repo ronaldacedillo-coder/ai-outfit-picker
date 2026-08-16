@@ -48,6 +48,7 @@ Then open http://localhost:3000. `.env.local` already contains this project's Su
 `.env.local` needs, beyond the Supabase URL/anon key already there:
 - `SUPABASE_SERVICE_ROLE_KEY` — server-side only, used by integration tests to create/clean up throwaway test users
 - `GEMINI_API_KEY` — server-side only, free key from [Google AI Studio](https://aistudio.google.com/apikey), used for clothing classification and outfit reasoning (unchanged by the FLUX work below)
+- `GEMINI_API_KEY_FALLBACK` — optional, server-side only. A second Gemini key from a **separate** Google Cloud project (a distinct free-tier quota pool, not just a second key on the same project). If set, `getAIProvider()` wraps both keys in a `FallbackAIProvider` (`src/lib/providers/fallback.ts`) that only tries the fallback once the primary key's own retries are exhausted. If unset, behavior is unchanged (primary key only).
 - `FAL_KEY` — server-side only, **paid** (no free tier, one-time signup credit only) key from the [fal.ai dashboard](https://fal.ai/dashboard/keys), used for outfit image generation
 
 ## Testing generation
