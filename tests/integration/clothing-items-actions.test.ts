@@ -24,7 +24,7 @@ async function getFirstCategoryAndSubcategory() {
 
 describe("clothing item actions", () => {
   it("uploads a photo, saves an item, updates it, then deletes it", async () => {
-    const user = await createTestUser();
+    const user = await createTestUser("ADMIN");
     const { categoryId, subcategoryId } = await getFirstCategoryAndSubcategory();
 
     const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
@@ -87,8 +87,39 @@ describe("clothing item actions", () => {
     await user.cleanup();
   });
 
+  it("rejects catalog mutations from a non-admin (CUSTOMER) with Not authorized", async () => {
+    const customer = await createTestUser("CUSTOMER");
+    const { categoryId, subcategoryId } = await getFirstCategoryAndSubcategory();
+
+    const uploadResult = await uploadClothingPhoto(
+      new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" }),
+      "jpg",
+      customer.client
+    );
+    expect(uploadResult).toEqual({ error: "Not authorized." });
+
+    const saveResult = await saveClothingItem(
+      {
+        categoryId,
+        subcategoryId,
+        imagePath: `${customer.id}/x.jpg`,
+        primaryColor: "blue",
+        secondaryColors: [],
+        pattern: "solid",
+        style: "casual",
+        formalityLevel: 2,
+        description: "should be rejected",
+        userEdited: true,
+      },
+      customer.client
+    );
+    expect(saveResult).toEqual({ error: "Not authorized." });
+
+    await customer.cleanup();
+  });
+
   it("returns a friendly error and does not throw when input is invalid", async () => {
-    const user = await createTestUser();
+    const user = await createTestUser("ADMIN");
     const result = await saveClothingItem(
       // @ts-expect-error deliberately invalid for this test
       { categoryId: -1 },
@@ -99,7 +130,7 @@ describe("clothing item actions", () => {
   });
 
   it("falls back to manual entry when the AI provider fails", async () => {
-    const user = await createTestUser();
+    const user = await createTestUser("ADMIN");
     const path = `${user.id}/does-not-matter.jpg`;
     const failingProvider: AIProvider = {
       analyzeClothingImage: async () => {
@@ -115,7 +146,7 @@ describe("clothing item actions", () => {
   });
 
   it("logs the real failure server-side instead of swallowing it silently", async () => {
-    const user = await createTestUser();
+    const user = await createTestUser("ADMIN");
     // A real uploaded file (not just a plausible-looking path) so the
     // failure genuinely originates from the injected AI provider, not an
     // upstream "signed URL: object not found" error from a nonexistent file.

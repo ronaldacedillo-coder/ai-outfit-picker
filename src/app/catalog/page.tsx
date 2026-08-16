@@ -2,18 +2,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/requireRole";
 import { getStorageProvider } from "@/lib/providers";
-import { UploadPanel } from "@/components/wardrobe/UploadPanel";
 import { WardrobeGrid } from "@/components/wardrobe/WardrobeGrid";
 import { AppNav } from "@/components/nav/AppNav";
 import type { ClothingItemRow } from "@/lib/wardrobe/types";
 
 export const dynamic = "force-dynamic";
 
-// The project has no generated Supabase types (see types/database.ts --
-// doesn't exist yet), so postgrest-js can't infer that these embedded
-// resources are to-one relations (a single FK column per item) and
-// defaults to typing them as arrays. This shape reflects the real
-// cardinality from the schema.
+// Same query-row shape as src/app/dashboard/page.tsx -- see the comment
+// there for why the embedded relations need this explicit interface.
 interface ClothingItemQueryRow {
   id: string;
   image_url: string;
@@ -31,23 +27,16 @@ interface ClothingItemQueryRow {
   clothing_subcategories: { name: string } | null;
 }
 
-export default async function DashboardPage() {
+export default async function CatalogPage() {
   const supabase = await createClient();
 
-  // proxy.ts already guarantees a session reaches this page (unauthenticated
-  // requests are redirected to /login before rendering), so a null result
-  // here means "wrong role," not "no session" -- safe to send everyone else
-  // to their own home page instead.
-  const auth = await requireRole(supabase, ["ADMIN"]);
-  if (!auth) redirect("/catalog");
+  // proxy.ts already guarantees a session reaches this page -- a null
+  // result here means the caller is an ADMIN, who has their own home page
+  // at /dashboard, not that they're unauthenticated.
+  const auth = await requireRole(supabase, ["STORE", "CUSTOMER"]);
+  if (!auth) redirect("/dashboard");
   const user = auth.user;
 
-  // These are deliberately sequential, not Promise.all. Firing them
-  // concurrently on this SSR cookie-based client reproducibly caused the
-  // middle query to silently return an empty result (no error) --
-  // confirmed by manual testing, root-caused to a race in how
-  // @supabase/ssr's createServerClient resolves the auth/cookie context
-  // for concurrent requests within a single render.
   const { data: categories } = await supabase.from("clothing_categories").select("id, name").order("sort_order");
   const { data: subcategories } = await supabase
     .from("clothing_subcategories")
@@ -60,12 +49,9 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false });
 
   const storage = getStorageProvider(supabase);
-  // A single item whose storage object is missing (a stray DB row, e.g.
-  // from an interrupted test/cleanup) must not take down the whole shared
-  // catalog page -- skip it rather than let Promise.all reject on one bad
-  // signed-URL call. This risk is materially higher now than in the old
-  // per-user-wardrobe model: the catalog aggregates every admin's items,
-  // not just the current viewer's own carefully-managed set.
+  // See the identical comment in src/app/dashboard/page.tsx: a single item
+  // with a missing storage object must not take down the whole shared
+  // catalog page.
   const signedRows = await Promise.all(
     ((items ?? []) as unknown as ClothingItemQueryRow[]).map(async (item) => {
       try {
@@ -105,14 +91,13 @@ export default async function DashboardPage() {
     <main className="mx-auto flex min-h-screen w-full min-w-0 max-w-4xl flex-col gap-8 px-6 py-16">
       <header className="flex min-w-0 flex-col gap-4 border-b border-border-subtle pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-medium text-ink">Catalog Management</h1>
+          <h1 className="font-display text-2xl font-medium text-ink">Catalog</h1>
           <p className="mt-1 truncate text-sm text-ink-secondary">Signed in as {user.email}</p>
         </div>
-        <AppNav role="ADMIN" activePath="/dashboard" />
+        <AppNav role={auth.role} activePath="/catalog" />
       </header>
 
-      <UploadPanel categories={categoryOptions} subcategories={subcategoryOptions} />
-      <WardrobeGrid items={rows} categories={categoryOptions} subcategories={subcategoryOptions} />
+      <WardrobeGrid items={rows} categories={categoryOptions} subcategories={subcategoryOptions} readOnly />
     </main>
   );
 }

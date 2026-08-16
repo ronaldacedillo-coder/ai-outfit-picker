@@ -3,8 +3,8 @@ import { createTestUser } from "./helpers/testUser";
 import { SupabaseStorageProvider } from "@/lib/providers/supabase-storage";
 
 describe("SupabaseStorageProvider", () => {
-  it("uploads, signs, and deletes an image scoped to the user's folder", async () => {
-    const user = await createTestUser();
+  it("uploads, signs, and deletes an image (clothing-photos is ADMIN-write as of migration 0007)", async () => {
+    const user = await createTestUser("ADMIN");
     const provider = new SupabaseStorageProvider(user.client);
     const path = `${user.id}/test.jpg`;
     const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });

@@ -10,10 +10,12 @@ export function WardrobeGrid({
   items,
   categories,
   subcategories,
+  readOnly = false,
 }: {
   items: ClothingItemRow[];
   categories: CategoryOption[];
   subcategories: SubcategoryOption[];
+  readOnly?: boolean;
 }) {
   const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
   const [styleFilter, setStyleFilter] = useState("all");
@@ -34,7 +36,7 @@ export function WardrobeGrid({
   if (items.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-border bg-surface-muted px-6 py-10 text-center text-sm text-ink-secondary">
-        Your wardrobe is empty — upload your first item above.
+        {readOnly ? "The catalog is empty right now — check back soon." : "Your wardrobe is empty — upload your first item above."}
       </p>
     );
   }
@@ -82,11 +84,16 @@ export function WardrobeGrid({
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
         {filtered.map((item) => (
-          <ClothingCard key={item.id} item={item} onEdit={() => setEditing(item)} />
+          <ClothingCard
+            key={item.id}
+            item={item}
+            readOnly={readOnly}
+            onEdit={readOnly ? undefined : () => setEditing(item)}
+          />
         ))}
       </div>
 
-      {editing && (
+      {!readOnly && editing && (
         <EditItemDialog
           item={editing}
           categories={categories}

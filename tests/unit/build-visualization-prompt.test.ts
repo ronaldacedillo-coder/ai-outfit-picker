@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildVisualizationPrompt } from "@/lib/outfit/buildVisualizationPrompt";
+import { buildVisualizationPrompt, PROMPT_VERSION } from "@/lib/outfit/buildVisualizationPrompt";
 import type { OutfitGarmentInput } from "@/lib/providers/types";
 
 const jacket: OutfitGarmentInput = {
@@ -94,6 +94,196 @@ describe("buildVisualizationPrompt", () => {
       expect(prompt).not.toContain("do not add pocket");
       expect(prompt).not.toContain("do not add lapel");
       expect(prompt).not.toContain("do not add collar");
+    });
+  });
+
+  describe("PROMPT_VERSION", () => {
+    it("is exported and has been bumped from its pre-category-lock value", () => {
+      expect(PROMPT_VERSION).toBeGreaterThan(1);
+    });
+  });
+
+  describe("category-lock rules", () => {
+    const fullZipJacket: OutfitGarmentInput = {
+      imageUrl: "https://example.com/full-zip.jpg",
+      role: "outerwear",
+      category: "outerwear",
+      subcategory: "full_zip_jacket",
+      primaryColor: "dark green",
+      pattern: "solid",
+      style: "casual",
+    };
+    const blazer: OutfitGarmentInput = {
+      imageUrl: "https://example.com/blazer.jpg",
+      role: "outerwear",
+      category: "outerwear",
+      subcategory: "blazer",
+      primaryColor: "navy",
+      pattern: "solid",
+      style: "business_formal",
+    };
+    const dressShirt: OutfitGarmentInput = {
+      imageUrl: "https://example.com/dress-shirt.jpg",
+      role: "top",
+      category: "top",
+      subcategory: "dress_shirt",
+      primaryColor: "white",
+      pattern: "solid",
+      style: "business_formal",
+    };
+    const poloShirt: OutfitGarmentInput = {
+      imageUrl: "https://example.com/polo.jpg",
+      role: "top",
+      category: "top",
+      subcategory: "polo_shirt",
+      primaryColor: "navy",
+      pattern: "solid",
+      style: "casual",
+    };
+    const chinos: OutfitGarmentInput = {
+      imageUrl: "https://example.com/chinos.jpg",
+      role: "bottom",
+      category: "bottom",
+      subcategory: "chinos",
+      primaryColor: "khaki",
+      pattern: "solid",
+      style: "smart_casual",
+    };
+    const suitTrousers: OutfitGarmentInput = {
+      imageUrl: "https://example.com/suit-trousers.jpg",
+      role: "bottom",
+      category: "bottom",
+      subcategory: "suit_trousers",
+      primaryColor: "charcoal",
+      pattern: "solid",
+      style: "business_formal",
+    };
+    const cardigan: OutfitGarmentInput = {
+      imageUrl: "https://example.com/cardigan.jpg",
+      role: "outerwear",
+      category: "outerwear",
+      subcategory: "cardigan",
+      primaryColor: "gray",
+      pattern: "solid",
+      style: "smart_casual",
+    };
+
+    it("locks a full-zip jacket against becoming a blazer or suit jacket", () => {
+      const prompt = buildVisualizationPrompt([fullZipJacket]).toLowerCase();
+      expect(prompt).toContain("full-zip jacket");
+      expect(prompt).toContain("must remain a full-zip jacket");
+      expect(prompt).toContain("do not render this full-zip jacket as a blazer");
+      expect(prompt).toContain("do not render this full-zip jacket as a suit jacket");
+    });
+
+    it("locks a blazer against becoming a suit jacket", () => {
+      const prompt = buildVisualizationPrompt([blazer]).toLowerCase();
+      expect(prompt).toContain("must remain a blazer");
+      expect(prompt).toContain("do not render this blazer as a suit jacket");
+    });
+
+    it("locks a dress shirt against becoming a polo", () => {
+      const prompt = buildVisualizationPrompt([dressShirt]).toLowerCase();
+      expect(prompt).toContain("must remain a dress shirt");
+      expect(prompt).toContain("do not render this dress shirt as a polo shirt");
+    });
+
+    it("locks a polo shirt against becoming a t-shirt", () => {
+      const prompt = buildVisualizationPrompt([poloShirt]).toLowerCase();
+      expect(prompt).toContain("must remain a polo shirt");
+      expect(prompt).toContain("do not render this polo shirt as a t-shirt");
+    });
+
+    it("locks chinos against becoming suit trousers", () => {
+      const prompt = buildVisualizationPrompt([chinos]).toLowerCase();
+      expect(prompt).toContain("must remain a chinos");
+      expect(prompt).toContain("do not render this chinos as a suit trousers");
+    });
+
+    it("locks suit trousers against becoming jeans", () => {
+      const prompt = buildVisualizationPrompt([suitTrousers]).toLowerCase();
+      expect(prompt).toContain("must remain a suit trousers");
+      expect(prompt).toContain("do not render this suit trousers as a jeans");
+    });
+
+    it("locks a cardigan against becoming a jacket", () => {
+      const prompt = buildVisualizationPrompt([cardigan]).toLowerCase();
+      expect(prompt).toContain("must remain a cardigan");
+      expect(prompt).toContain("do not render this cardigan as a jacket");
+    });
+
+    it("does not emit identity-lock language for a garment with no matching rule", () => {
+      const plainPants: OutfitGarmentInput = {
+        imageUrl: "https://example.com/pants.jpg",
+        role: "bottom",
+        category: "bottom",
+        subcategory: "pants",
+        primaryColor: "gray",
+        pattern: "solid",
+        style: "casual",
+      };
+      const prompt = buildVisualizationPrompt([plainPants]).toLowerCase();
+      expect(prompt).not.toContain("must remain a");
+    });
+  });
+
+  describe("color, pattern, and silhouette fidelity", () => {
+    it("adds an exact hex-anchored color line when primaryColorHex is provided", () => {
+      const withHex: OutfitGarmentInput = { ...shirt, primaryColorHex: "#1B2A4A" };
+      const prompt = buildVisualizationPrompt([withHex]);
+      expect(prompt).toContain("#1B2A4A");
+      expect(prompt.toLowerCase()).toContain("match this exact hue");
+    });
+
+    it("does not add a hex-anchored line when no hex is provided", () => {
+      const prompt = buildVisualizationPrompt([shirt]).toLowerCase();
+      expect(prompt).not.toContain("match this exact hue");
+    });
+
+    it("adds a pattern-preservation line for a non-solid pattern", () => {
+      const striped: OutfitGarmentInput = { ...shirt, pattern: "striped" };
+      const prompt = buildVisualizationPrompt([striped]).toLowerCase();
+      expect(prompt).toContain("striped");
+      expect(prompt).toContain("do not substitute a different pattern");
+    });
+
+    it("does not add a pattern-preservation line for a solid garment", () => {
+      const prompt = buildVisualizationPrompt([shirt]).toLowerCase();
+      expect(prompt).not.toContain("do not substitute a different pattern");
+    });
+
+    it("surfaces visualDetails as preserve-exactly construction lines", () => {
+      const withDetails: OutfitGarmentInput = {
+        ...shirt,
+        visualDetails: { collar: "spread collar", sleeve: "long sleeve, barrel cuff" },
+      };
+      const prompt = buildVisualizationPrompt([withDetails]).toLowerCase();
+      expect(prompt).toContain("collar: spread collar -- preserve exactly");
+      expect(prompt).toContain("sleeve: long sleeve, barrel cuff -- preserve exactly");
+    });
+
+    it("surfaces a silhouette detail as its own preserve-exactly line", () => {
+      const withSilhouette: OutfitGarmentInput = { ...shirt, visualDetails: { silhouette: "slim fit" } };
+      const prompt = buildVisualizationPrompt([withSilhouette]).toLowerCase();
+      expect(prompt).toContain("silhouette: slim fit -- preserve exactly");
+    });
+
+    it("always includes the generic fit-preservation line even with no visualDetails", () => {
+      const prompt = buildVisualizationPrompt([shirt]).toLowerCase();
+      expect(prompt).toContain("do not slim, loosen, lengthen, shorten, or otherwise resize");
+    });
+  });
+
+  describe("occasion / style-context direction", () => {
+    it("adds no occasion section when no context is passed", () => {
+      const prompt = buildVisualizationPrompt([shirt]).toLowerCase();
+      expect(prompt).not.toContain("styling context");
+    });
+
+    it("adds a styling-context line and the category-change guard when context is passed", () => {
+      const prompt = buildVisualizationPrompt([shirt], { occasion: "OFFICE", styleContext: "CLASSIC" }).toLowerCase();
+      expect(prompt).toContain("styling context: office, classic");
+      expect(prompt).toContain("must never change any garment's category, color, or pattern");
     });
   });
 });

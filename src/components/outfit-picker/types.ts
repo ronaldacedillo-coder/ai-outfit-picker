@@ -18,4 +18,8 @@ export interface DisplayCandidate {
   };
   explanation: string;
   conflicts: string[];
+  // Not shown as technical AI terminology to the end user -- see
+  // RecommendationCard's label mapping ("ARROW STYLE PICK" /
+  // "AI STYLE RECOMMENDATION" / no badge at all for a plain fallback).
+  source?: "admin_override" | "ai" | "fallback";
 }

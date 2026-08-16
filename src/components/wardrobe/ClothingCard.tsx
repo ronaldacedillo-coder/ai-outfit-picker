@@ -5,7 +5,15 @@ import Link from "next/link";
 import { deleteClothingItem } from "@/app/dashboard/actions";
 import type { ClothingItemRow } from "@/lib/wardrobe/types";
 
-export function ClothingCard({ item, onEdit }: { item: ClothingItemRow; onEdit: () => void }) {
+export function ClothingCard({
+  item,
+  onEdit,
+  readOnly = false,
+}: {
+  item: ClothingItemRow;
+  onEdit?: () => void;
+  readOnly?: boolean;
+}) {
   const [deleting, setDeleting] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -31,20 +39,22 @@ export function ClothingCard({ item, onEdit }: { item: ClothingItemRow; onEdit: 
       >
         Find outfits
       </Link>
-      <div className="flex gap-3 text-xs">
-        <button className="text-ink-secondary underline underline-offset-2 hover:text-ink" onClick={onEdit}>
-          Edit
-        </button>
-        {confirming ? (
-          <button className="text-danger underline underline-offset-2" onClick={handleDelete} disabled={deleting}>
-            {deleting ? "Deleting…" : "Confirm delete"}
+      {!readOnly && onEdit && (
+        <div className="flex gap-3 text-xs">
+          <button className="text-ink-secondary underline underline-offset-2 hover:text-ink" onClick={onEdit}>
+            Edit
           </button>
-        ) : (
-          <button className="text-danger underline underline-offset-2" onClick={() => setConfirming(true)}>
-            Delete
-          </button>
-        )}
-      </div>
+          {confirming ? (
+            <button className="text-danger underline underline-offset-2" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Deleting…" : "Confirm delete"}
+            </button>
+          ) : (
+            <button className="text-danger underline underline-offset-2" onClick={() => setConfirming(true)}>
+              Delete
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
