@@ -39,7 +39,7 @@ export function RecommendationCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", bounce: 0, duration: 0.35, delay: Math.min(index, 6) * 0.05 }}
-      className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm transition-shadow duration-200 ease-out hover:shadow-md sm:flex-row sm:items-center"
+      className="flex flex-col gap-4 rounded-xl bg-surface p-4 shadow-sm transition-shadow duration-200 ease-out hover:shadow-md sm:flex-row sm:items-center"
     >
       <div className="flex gap-2">
         {garments.map((g) => (
