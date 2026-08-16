@@ -48,26 +48,49 @@ export function UploadItemCard({
     startedRef.current = true;
 
     async function run() {
-      const validation = validateImageFile(file);
-      if (!validation.valid) {
-        setError(validation.error);
-        setStatus("error");
-        return;
-      }
+      // Tracked locally, not read back from the `path` state, since a
+      // catch block right after setPath() can't rely on that state update
+      // having flushed yet.
+      let uploadedPath: string | null = null;
+      try {
+        const validation = validateImageFile(file);
+        if (!validation.valid) {
+          setError(validation.error);
+          setStatus("error");
+          return;
+        }
 
-      const processed = await processImageFile(file);
-      const uploadResult = await uploadClothingPhoto(processed, "jpg");
-      if ("error" in uploadResult) {
-        setError(uploadResult.error);
-        setStatus("error");
-        return;
-      }
-      setPath(uploadResult.data.path);
+        const processed = await processImageFile(file);
+        const uploadResult = await uploadClothingPhoto(processed, "jpg");
+        if ("error" in uploadResult) {
+          setError(uploadResult.error);
+          setStatus("error");
+          return;
+        }
+        uploadedPath = uploadResult.data.path;
+        setPath(uploadedPath);
 
-      setStatus("analyzing");
-      const analysisResult = await analyzeClothingPhoto(uploadResult.data.path);
-      setAnalysis("error" in analysisResult ? null : analysisResult.data.analysis);
-      setStatus("review");
+        setStatus("analyzing");
+        const analysisResult = await analyzeClothingPhoto(uploadedPath);
+        setAnalysis("error" in analysisResult ? null : analysisResult.data.analysis);
+        setStatus("review");
+      } catch {
+        // A network failure or Server Action invocation error (e.g. a
+        // platform-level timeout) throws instead of returning {error} --
+        // without this catch, the component would stay on "Analyzing with
+        // AI..." forever with no way for the user to escape it, since
+        // nothing after the throw ever runs to change the status. If the
+        // upload itself already succeeded, degrade the same way a clean
+        // analysis {error} does -- straight to manual review, not a
+        // dead-end that forces the user to remove and re-upload.
+        if (uploadedPath) {
+          setAnalysis(null);
+          setStatus("review");
+        } else {
+          setError("Couldn't upload this photo — please try again.");
+          setStatus("error");
+        }
+      }
     }
 
     run();
@@ -77,8 +100,16 @@ export function UploadItemCard({
   async function handleReanalyze() {
     if (!path) return;
     setStatus("analyzing");
-    const analysisResult = await analyzeClothingPhoto(path);
-    setAnalysis("error" in analysisResult ? null : analysisResult.data.analysis);
+    try {
+      const analysisResult = await analyzeClothingPhoto(path);
+      setAnalysis("error" in analysisResult ? null : analysisResult.data.analysis);
+    } catch {
+      // Same reasoning as run()'s catch above -- a thrown (not returned)
+      // failure here must not leave the card stuck on "Analyzing with
+      // AI..." forever. The photo is already uploaded, so degrade to
+      // manual review rather than a dead end.
+      setAnalysis(null);
+    }
     setStatus("review");
   }
 
