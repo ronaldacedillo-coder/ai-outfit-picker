@@ -117,6 +117,35 @@ describe("generateOutfitVisualization caching", () => {
     await user.cleanup();
   });
 
+  it("lets two different users each generate the same combination without colliding (regression: combination_hash uniqueness was global, not per-user, causing a hard error for the second user)", async () => {
+    const userA = await createTestUser();
+    const userB = await createTestUser();
+    // A single shared-catalog item, referenced by both users -- the whole
+    // point of the shared catalog (migration 0005) is that this is normal.
+    const itemId = await seedClothingItem(userA.id, "top", "cache-shared", "d");
+    const { provider, callCount } = countingProvider();
+
+    const first = await generateOutfitVisualization([itemId], userA.client, provider);
+    if ("error" in first) throw new Error(`User A: ${first.error}`);
+
+    const second = await generateOutfitVisualization([itemId], userB.client, provider);
+    if ("error" in second) throw new Error(`User B: ${second.error}`);
+
+    // Per-user cache: each user gets their own row and their own real
+    // generation call -- no cross-user credit sharing, but critically no
+    // hard error either.
+    expect(callCount()).toBe(2);
+    expect(second.data.outfitId).not.toBe(first.data.outfitId);
+
+    const admin = supabaseAdmin();
+    await admin.from("outfits").delete().eq("id", first.data.outfitId);
+    await admin.from("outfits").delete().eq("id", second.data.outfitId);
+    await admin.storage.from("outfit-images").remove([first.data.imageUrl, second.data.imageUrl]);
+    await admin.storage.from("clothing-photos").remove([`${userA.id}/top-cache-d.jpg`]);
+    await userA.cleanup();
+    await userB.cleanup();
+  });
+
   it("makes exactly one FLUX call when two concurrent requests target the same combination", async () => {
     const user = await createTestUser();
     const itemId = await seedClothingItem(user.id, "top", "cache-concurrent", "c");
