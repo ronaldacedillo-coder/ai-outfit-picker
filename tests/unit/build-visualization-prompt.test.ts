@@ -212,6 +212,22 @@ describe("buildVisualizationPrompt", () => {
       expect(prompt).toContain("do not render this cardigan as a jacket");
     });
 
+    it("locks a full-zip jacket against becoming a blazer even when the AI analyzer phrases it as 'zip-up jacket' (regression: real analyzer output never matched the old full-phrase key)", () => {
+      const realWorldZipJacket: OutfitGarmentInput = {
+        imageUrl: "https://example.com/zip-up.jpg",
+        role: "outerwear",
+        category: "outerwear",
+        subcategory: "zip-up jacket",
+        primaryColor: "dark brown",
+        pattern: "solid",
+        style: "smart_casual",
+      };
+      const prompt = buildVisualizationPrompt([realWorldZipJacket]).toLowerCase();
+      expect(prompt).toContain("must remain a full-zip jacket");
+      expect(prompt).toContain("do not render this full-zip jacket as a blazer");
+      expect(prompt).toContain("do not render this full-zip jacket as a suit jacket");
+    });
+
     it("does not emit identity-lock language for a garment with no matching rule", () => {
       const plainPants: OutfitGarmentInput = {
         imageUrl: "https://example.com/pants.jpg",
