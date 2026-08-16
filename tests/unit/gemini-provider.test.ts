@@ -171,6 +171,25 @@ describe("GeminiAIProvider retry behavior", () => {
     expect(generateContent).toHaveBeenCalledTimes(3);
   });
 
+  it("does not retry a 429 that reports daily quota exhaustion, only a generic rate limit (regression: retrying an exhausted daily quota 3 times per fallback key wasted ~13s in production before any error surfaced)", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    const generateContent = vi.fn().mockRejectedValue(
+      new MockApiError(
+        429,
+        '{"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details. * Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.7-flash\\nPlease retry in 37.7s.","status":"RESOURCE_EXHAUSTED"}}'
+      )
+    );
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return { models: { generateContent } };
+    });
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    await expect(provider.analyzeClothingImage("https://example.com/photo.jpg")).rejects.toThrow(
+      /exceeded your current quota/
+    );
+    expect(generateContent).toHaveBeenCalledTimes(1);
+  });
+
   it("does not retry a non-retryable error (e.g. 401 invalid API key)", async () => {
     const { GoogleGenAI } = await import("@google/genai");
     const generateContent = vi.fn().mockRejectedValue(new MockApiError(401, "invalid API key"));

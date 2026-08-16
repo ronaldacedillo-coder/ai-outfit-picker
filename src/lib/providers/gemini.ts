@@ -36,6 +36,19 @@ const MODEL = "gemini-3.7-flash";
 // Everything else (401/403 auth, 404 model-not-found, 400 bad request) is a
 // persistent failure that a retry can't fix, so it fails immediately.
 const RETRYABLE_STATUSES = new Set([503, 429]);
+
+// A 429 covers two genuinely different situations that read identically at
+// the status-code level: a short-lived rate-limit spike (worth retrying
+// fast) and the free tier's daily request quota being fully used up (not
+// worth retrying at all -- Google's own response says "please retry in
+// ~30s", far longer than this retry loop's delay). Confirmed live in
+// production: with 6 fallback API keys all past their daily quota, the old
+// code retried each one 3 times anyway, burning ~13s of wasted round-trips
+// before the user saw anything. Distinguished by message text, the only
+// place the two cases differ -- both are ApiError with status 429.
+function isDailyQuotaExhausted(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 429 && /exceeded your current quota/i.test(err.message ?? "");
+}
 // Bumped from 2 -> 3 after live testing showed attempt 1 failing (429 or
 // 503) and attempt 2 succeeding within ~3s was common, but not guaranteed --
 // two back-to-back failures under sustained demand aren't rare enough to
@@ -78,7 +91,8 @@ async function generateContentWithRetry(
       return await client.models.generateContent(request);
     } catch (err) {
       logGeminiError(context, err, attempt);
-      const isRetryable = err instanceof ApiError && RETRYABLE_STATUSES.has(err.status ?? 0);
+      const isRetryable =
+        err instanceof ApiError && RETRYABLE_STATUSES.has(err.status ?? 0) && !isDailyQuotaExhausted(err);
       if (!isRetryable || attempt === MAX_ATTEMPTS) {
         throw err;
       }
