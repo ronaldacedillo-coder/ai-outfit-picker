@@ -1,22 +1,66 @@
 @import "tailwindcss";
 
+/*
+ * Single light theme. Deliberately no `prefers-color-scheme: dark` block —
+ * this app previously flipped --background/--foreground to near-black under
+ * OS dark mode while individual components hardcoded light Tailwind colors
+ * independently of these variables, producing a broken half-dark/half-light
+ * page. The fix is architectural, not cosmetic: every component below reads
+ * color from these tokens instead of hardcoding its own gray scale, so
+ * there is exactly one place the palette lives.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Always light: ignore the OS/browser color-scheme preference so native
+     form controls (date pickers, scrollbars) don't render a dark skin. */
+  color-scheme: light only;
+
+  --background: #faf6ee; /* warm ivory page background */
+  --foreground: #211d18; /* deep charcoal body text */
+
+  --surface: #ffffff; /* cards, modals -- sits "brighter" than the ivory page */
+  --surface-muted: #f2ece0; /* hover states, image placeholders, subtle panels */
+
+  --border: #e4dccb; /* default hairline border */
+  --border-subtle: #eee8db; /* lighter separator, dividers */
+
+  --text-primary: #211d18;
+  --text-secondary: #6b6355; /* descriptions, timestamps, helper text -- ~5:1 contrast */
+  --text-muted: #8f8574; /* placeholders and decorative-only text, not for content */
+
+  --accent: #211d18; /* charcoal -- primary buttons, links, focus ring */
+  --accent-hover: #3a342c;
+  --accent-foreground: #fbf9f4;
+
+  --danger: #9a4130; /* muted brick/terracotta, not a saturated red */
+  --danger-hover: #7e362a;
+  --danger-foreground: #fbf9f4;
+  --danger-surface: #f7e9e5;
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+
+  --color-ink: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-surface: var(--danger-surface);
+
+  --font-sans: var(--font-geist-sans);
+  --font-display: var(--font-fraunces);
+  --font-mono: var(--font-geist-mono);
 }
 
 body {

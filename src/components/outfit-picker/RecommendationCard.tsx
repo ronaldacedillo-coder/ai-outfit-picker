@@ -21,7 +21,7 @@ export function RecommendationCard({
   );
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition-shadow duration-200 ease-out hover:shadow-md sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm transition-shadow duration-200 ease-out hover:shadow-md sm:flex-row sm:items-center">
       <div className="flex gap-2">
         {garments.map((g) => (
           // eslint-disable-next-line @next/next/no-img-element
@@ -29,7 +29,7 @@ export function RecommendationCard({
             key={g.id}
             src={g.imageSignedUrl}
             alt={`${g.primaryColor} ${g.subcategory.replace(/_/g, " ")}`}
-            className="h-20 w-20 shrink-0 rounded-lg object-cover ring-1 ring-stone-200"
+            className="h-20 w-20 shrink-0 rounded-lg object-cover ring-1 ring-border"
           />
         ))}
       </div>
@@ -45,16 +45,16 @@ export function RecommendationCard({
             {Array.from({ length: 5 }, (_, i) => (
               <span
                 key={i}
-                className={`h-1.5 w-3 rounded-full ${i < filled ? QUALITY_METER_FILL[tier] : "bg-stone-200"}`}
+                className={`h-1.5 w-3 rounded-full ${i < filled ? QUALITY_METER_FILL[tier] : "bg-surface-muted"}`}
               />
             ))}
           </span>
         </div>
 
-        <p className="text-sm text-stone-700">{candidate.explanation}</p>
+        <p className="text-sm text-ink-secondary">{candidate.explanation}</p>
 
         {candidate.conflicts.length > 0 && (
-          <ul className="text-xs text-amber-700">
+          <ul className="text-xs text-danger">
             {candidate.conflicts.map((c, i) => (
               <li key={i}>⚠ {c}</li>
             ))}
@@ -65,7 +65,7 @@ export function RecommendationCard({
       <button
         onClick={onVisualize}
         disabled={disabled}
-        className="shrink-0 rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white transition-transform duration-150 ease-out hover:bg-stone-800 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+        className="shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-transform duration-150 ease-out hover:bg-accent-hover active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {visualizing ? "Generating…" : "Visualize outfit"}
       </button>

@@ -91,31 +91,31 @@ export function OutfitPickerView({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-4 rounded-xl bg-stone-50 p-4">
+      <div className="flex items-center gap-4 rounded-xl border border-border-subtle bg-surface-muted p-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={selectedItem.imageSignedUrl}
           alt={`${selectedItem.primaryColor} ${selectedItem.subcategoryName}`}
-          className="h-16 w-16 rounded-lg object-cover ring-1 ring-stone-200"
+          className="h-16 w-16 rounded-lg object-cover ring-1 ring-border"
         />
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Styling from</p>
-          <p className="text-sm font-medium text-stone-800">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-secondary">Styling from</p>
+          <p className="font-display text-sm font-medium text-ink">
             {selectedItem.primaryColor} {selectedItem.subcategoryName.replace(/_/g, " ")}
           </p>
         </div>
       </div>
 
       {view.mode === "error" && (
-        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{view.message}</p>
+        <p className="rounded-md bg-danger-surface px-4 py-3 text-sm text-danger">{view.message}</p>
       )}
 
       {view.mode === "generating" && (
-        <p className="text-sm font-medium text-stone-600">{STATUS_MESSAGES[statusIndex]}</p>
+        <p className="text-sm font-medium text-ink-secondary">{STATUS_MESSAGES[statusIndex]}</p>
       )}
 
       {candidates.length === 0 ? (
-        <p className="rounded-xl bg-stone-50 px-6 py-10 text-center text-sm text-stone-600">
+        <p className="rounded-xl border border-dashed border-border bg-surface-muted px-6 py-10 text-center text-sm text-ink-secondary">
           We couldn&apos;t find a strong match in your wardrobe yet. Try adding more shirts or pants.
         </p>
       ) : (

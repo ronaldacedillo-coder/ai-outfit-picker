@@ -25,7 +25,7 @@ export function UploadPanel({
 
   return (
     <section className="flex flex-col gap-4">
-      <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-neutral-300 px-6 py-10 text-center text-sm text-neutral-500 hover:bg-neutral-50">
+      <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-ink-secondary transition-colors hover:bg-surface-muted">
         <span>Click to upload one or more clothing photos</span>
         <input
           type="file"

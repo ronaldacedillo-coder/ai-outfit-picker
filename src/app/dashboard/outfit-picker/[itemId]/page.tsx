@@ -33,10 +33,10 @@ export default async function OutfitPickerPage({
   if (!itemRow || "error" in result) {
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-6 py-16">
-        <Link href="/dashboard" className="text-sm text-stone-500 underline">
+        <Link href="/dashboard" className="text-sm text-ink-secondary underline underline-offset-2">
           ← Back to My Wardrobe
         </Link>
-        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="rounded-md bg-danger-surface px-4 py-3 text-sm text-danger">
           {"error" in result ? result.error : "That item couldn't be found."}
         </p>
       </main>
@@ -75,14 +75,14 @@ export default async function OutfitPickerPage({
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-16">
       <div>
         <div className="flex gap-4 text-sm">
-          <Link href="/dashboard" className="text-stone-500 underline">
+          <Link href="/dashboard" className="text-ink-secondary underline underline-offset-2">
             ← Back to My Wardrobe
           </Link>
-          <Link href="/dashboard/looks" className="text-stone-500 underline">
+          <Link href="/dashboard/looks" className="text-ink-secondary underline underline-offset-2">
             My Looks
           </Link>
         </div>
-        <h1 className="mt-2 text-2xl font-semibold text-stone-900">Find outfits</h1>
+        <h1 className="mt-2 font-display text-2xl font-medium text-ink">Find outfits</h1>
       </div>
       <OutfitPickerView selectedItem={selectedItem} candidates={candidates} />
     </main>

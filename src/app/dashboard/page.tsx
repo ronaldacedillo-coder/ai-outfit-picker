@@ -83,24 +83,24 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full min-w-0 max-w-4xl flex-col gap-8 px-6 py-16">
-      <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <header className="flex min-w-0 flex-col gap-4 border-b border-border-subtle pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold">My Wardrobe</h1>
-          <p className="mt-1 truncate text-sm text-neutral-500">Signed in as {user?.email}</p>
+          <h1 className="font-display text-2xl font-medium text-ink">My Wardrobe</h1>
+          <p className="mt-1 truncate text-sm text-ink-secondary">Signed in as {user?.email}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <nav className="flex flex-wrap gap-4 text-sm font-medium text-neutral-600">
-            <Link href="/dashboard" className="text-neutral-900 underline">
+        <div className="flex flex-wrap items-center gap-5">
+          <nav className="flex flex-wrap gap-5 text-sm font-medium">
+            <Link href="/dashboard" className="text-ink underline decoration-accent decoration-2 underline-offset-4">
               My Wardrobe
             </Link>
-            <Link href="/dashboard/looks" className="hover:text-neutral-900">
+            <Link href="/dashboard/looks" className="text-ink-secondary transition-colors hover:text-ink">
               My Looks
             </Link>
           </nav>
           <form action={signOut}>
             <button
               type="submit"
-              className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-50"
+              className="rounded-md border border-border px-3 py-2 text-sm font-medium text-ink hover:bg-surface-muted"
             >
               Sign out
             </button>
