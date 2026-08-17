@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 5;
+export const PROMPT_VERSION = 6;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -298,6 +298,54 @@ function buildCategorySubstitutionLines(garments: OutfitGarmentInput[]): string[
   return lines;
 }
 
+// Leading, high-emphasis rule block -- placed first in the prompt (before
+// task framing) so it governs everything that follows, at the user's
+// explicit request after the narrower, later-positioned sleeve-length
+// and layering-consistency instructions (sections 2b/2c) didn't fully
+// suppress FLUX's own learned "shirt cuff peeking from a blazer sleeve"
+// convention across multiple real test generations. Scoped to the same
+// outerwear + short-sleeve-top condition as those sections -- this is a
+// broad, general-purpose garment-fidelity rule, not layering-specific,
+// but there's no evidence yet it's needed outside that failure mode, so
+// it isn't applied unconditionally to every generation.
+function buildCriticalGarmentFidelityLines(garments: OutfitGarmentInput[]): string[] {
+  const hasOuterwear = garments.some((g) => normalize(g.category) === "outerwear");
+  const hasShortSleeveTop = garments.some((g) => normalize(g.category) === "top" && isShortSleeve(g));
+  if (!hasOuterwear || !hasShortSleeveTop) return [];
+
+  return [
+    "CRITICAL OUTFIT GENERATION RULE -- PRESERVE THE ACTUAL SELECTED GARMENTS:",
+    "",
+    "The selected wardrobe images are the absolute source of truth. Reproduce the exact selected garments in the generated outfit and use them only as styling components. Do NOT redesign, reinterpret, substitute, merge, simplify, embellish, shorten, lengthen, or otherwise alter any selected garment.",
+    "",
+    "Each selected item must remain a distinct and recognizable garment with its original:",
+    "- garment category and type",
+    "- silhouette and proportions",
+    "- sleeve length and sleeve construction",
+    "- collar and neckline",
+    "- buttons, zippers, closures and fasteners",
+    "- pockets and other construction details",
+    "- fabric/material appearance",
+    "- color and pattern",
+    "- overall shape and physical characteristics",
+    "",
+    "Maintain correct real-world garment layering and physical relationships between garments. Outer garments must remain outer garments and inner garments must remain inner garments. Do not transfer characteristics from one garment to another.",
+    "",
+    "In particular, NEVER change the sleeve length of a garment because of another selected garment. A long-sleeved jacket must remain long-sleeved; a short-sleeved polo or shirt must remain short-sleeved; trousers must remain trousers; and so on. Do not invent cuffs, folds, rolled sleeves, extra layers, additional garments, or construction details that are not present in the selected items.",
+    "",
+    "The generated person should be wearing the actual selected garments as they would realistically be worn together by a real person. Preserve accurate garment boundaries, occlusion, proportions, fit, and layering.",
+    "",
+    "If a selected garment is partially hidden by another garment, preserve the visible characteristics of the original garment and do not expose portions that would not realistically be visible.",
+    "",
+    "PRIORITY RULE: Garment fidelity is more important than fashion interpretation, visual creativity, or aesthetic improvement. If there is any conflict between making the outfit look more fashionable and accurately preserving a selected garment, ALWAYS preserve the selected garment.",
+    "",
+    "Do not generate a visually similar replacement. Generate the actual selected garment.",
+    "",
+    "The final image should look like a professional premium menswear fashion photograph of the exact selected wardrobe items being worn together, with realistic anatomy, realistic garment construction, natural fabric behavior, and physically correct layering.",
+    "",
+  ];
+}
+
 export function buildVisualizationPrompt(
   garments: OutfitGarmentInput[],
   context?: { occasion?: Occasion; styleContext?: StyleContext }
@@ -307,6 +355,9 @@ export function buildVisualizationPrompt(
     .join("\n");
 
   return [
+    // 0. Leading critical garment-fidelity rule (only when outerwear +
+    // short-sleeve top are both selected -- see buildCriticalGarmentFidelityLines)
+    ...buildCriticalGarmentFidelityLines(garments),
     // 1. Task framing
     "Photorealistic professional male model wearing the exact clothing items shown in the provided reference images.",
     "",

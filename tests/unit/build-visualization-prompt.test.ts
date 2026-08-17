@@ -364,6 +364,58 @@ describe("buildVisualizationPrompt", () => {
     });
   });
 
+  describe("critical garment-fidelity rule (outerwear + short-sleeve top)", () => {
+    const grayBlazer: OutfitGarmentInput = {
+      imageUrl: "https://example.com/blazer.jpg",
+      role: "outerwear",
+      category: "outerwear",
+      subcategory: "blazer",
+      primaryColor: "grey",
+      pattern: "solid",
+      style: "business_casual",
+    };
+    const shortSleeveShirt: OutfitGarmentInput = {
+      imageUrl: "https://example.com/shirt.jpg",
+      role: "top",
+      category: "top",
+      subcategory: "short_sleeve_shirt",
+      primaryColor: "navy blue",
+      pattern: "solid",
+      style: "casual",
+    };
+    const longSleeveShirt: OutfitGarmentInput = {
+      imageUrl: "https://example.com/dress-shirt.jpg",
+      role: "top",
+      category: "top",
+      subcategory: "dress_shirt",
+      primaryColor: "white",
+      pattern: "solid",
+      style: "business_formal",
+      visualDetails: { sleeve: "long sleeve" },
+    };
+
+    it("leads the prompt with the critical garment-fidelity rule block when outerwear and a short-sleeve top are both selected", () => {
+      const prompt = buildVisualizationPrompt([grayBlazer, shortSleeveShirt]);
+      expect(prompt).toContain("CRITICAL OUTFIT GENERATION RULE -- PRESERVE THE ACTUAL SELECTED GARMENTS:");
+      expect(prompt).toContain("NEVER change the sleeve length of a garment because of another selected garment");
+      expect(prompt).toContain(
+        "PRIORITY RULE: Garment fidelity is more important than fashion interpretation, visual creativity, or aesthetic improvement."
+      );
+      // Must be the very first content in the prompt, not buried later.
+      expect(prompt.indexOf("CRITICAL OUTFIT GENERATION RULE")).toBe(0);
+    });
+
+    it("does not add the block when the top underneath is long-sleeved", () => {
+      const prompt = buildVisualizationPrompt([grayBlazer, longSleeveShirt]);
+      expect(prompt).not.toContain("CRITICAL OUTFIT GENERATION RULE");
+    });
+
+    it("does not add the block when no outerwear is selected", () => {
+      const prompt = buildVisualizationPrompt([shortSleeveShirt]);
+      expect(prompt).not.toContain("CRITICAL OUTFIT GENERATION RULE");
+    });
+  });
+
   describe("color, pattern, and silhouette fidelity", () => {
     it("adds an exact hex-anchored color line when primaryColorHex is provided", () => {
       const withHex: OutfitGarmentInput = { ...shirt, primaryColorHex: "#1B2A4A" };
