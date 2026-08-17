@@ -173,13 +173,29 @@ export async function generateOutfitVisualization(
   // retains no trace of what was being generated, making a "retry the
   // same combination" action impossible (discovered while building the
   // My Looks retry flow).
-  await supabase.from("outfit_items").insert(
+  //
+  // Error is now checked and logged (it previously wasn't) -- an unchecked
+  // failure here is exactly how a stale RLS policy (fixed in migration
+  // 0014; it required clothing_items.user_id = auth.uid(), a leftover
+  // from before the catalog became shared/admin-owned) silently left
+  // outfit_items completely empty across every real generation for days
+  // without ever surfacing an error anywhere. Deliberately not turned
+  // into a hard failure of the whole generation -- the image itself still
+  // succeeds independent of this -- but it must be visible in logs.
+  const { error: outfitItemsError } = await supabase.from("outfit_items").insert(
     rows.map((item) => ({
       outfit_id: outfitId,
       clothing_item_id: item.id,
       role: item.clothing_categories?.name ?? "top",
     }))
   );
+  if (outfitItemsError) {
+    console.error("[generateOutfitVisualization] outfit_items insert failed", {
+      outfitId,
+      message: outfitItemsError.message,
+      code: outfitItemsError.code,
+    });
+  }
 
   // Two distinct buckets, two provider instances: garment reference photos
   // live in the wardrobe's private clothing-photos bucket; the generated
