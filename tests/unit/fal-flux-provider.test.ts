@@ -72,6 +72,28 @@ describe("FalFluxImageGenProvider", () => {
     expect(result.model).toBe("fal-ai/flux-pro/kontext/max/multi");
   });
 
+  it("raises the guidance scale above the API default on both endpoints (higher CFG weights prompt adherence more heavily against FLUX's own learned conventions, e.g. rendering a shirt cuff under a blazer regardless of the actual shirt's sleeve length)", async () => {
+    subscribeMock.mockResolvedValue({
+      data: { images: [{ url: "https://fal.media/result.jpg" }] },
+      requestId: "req-1",
+    });
+    const { FalFluxImageGenProvider } = await import("@/lib/providers/fal-flux");
+    const provider = new FalFluxImageGenProvider("fake-key");
+
+    await provider.generateOutfitVisualization({ garments: [shirt] });
+    expect(subscribeMock).toHaveBeenCalledWith(
+      "fal-ai/flux-pro/kontext",
+      expect.objectContaining({ input: expect.objectContaining({ guidance_scale: expect.any(Number) }) })
+    );
+    const singleGuidance = subscribeMock.mock.calls[0][1].input.guidance_scale;
+    expect(singleGuidance).toBeGreaterThan(3.5);
+
+    subscribeMock.mockClear();
+    await provider.generateOutfitVisualization({ garments: [shirt, pants] });
+    const multiGuidance = subscribeMock.mock.calls[0][1].input.guidance_scale;
+    expect(multiGuidance).toBeGreaterThan(3.5);
+  });
+
   it("throws a safe error when fal.ai returns no images", async () => {
     subscribeMock.mockResolvedValue({ data: { images: [] }, requestId: "req-3" });
     const { FalFluxImageGenProvider } = await import("@/lib/providers/fal-flux");

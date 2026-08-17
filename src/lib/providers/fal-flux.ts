@@ -35,10 +35,26 @@ export class FalFluxImageGenProvider implements ImageGenProvider {
       styleContext: parsedStyleContext?.success ? parsedStyleContext.data : undefined,
     });
     const model = input.garments.length >= 2 ? MULTI_ENDPOINT : SINGLE_ENDPOINT;
+    // Raised from the API default (3.5) -- this app's prompt is dense with
+    // strict "preserve exactly" / "do not render X" fidelity constraints
+    // (garment category locks, sleeve-length locks, color/pattern
+    // fidelity), and the default CFG scale left the model following its
+    // own learned visual conventions over explicit instructions often
+    // enough to matter: confirmed live, a short-sleeve shirt worn under a
+    // blazer still showed a shirt cuff at the blazer's wrist across two
+    // real generations even after the prompt instruction was made very
+    // explicit and repeated twice. A higher guidance scale weights prompt
+    // adherence more heavily against the model's own priors.
+    const GUIDANCE_SCALE = 6.5;
     const requestInput =
       input.garments.length >= 2
-        ? { prompt, image_urls: input.garments.map((g) => g.imageUrl), seed: input.seed }
-        : { prompt, image_url: input.garments[0].imageUrl, seed: input.seed };
+        ? {
+            prompt,
+            image_urls: input.garments.map((g) => g.imageUrl),
+            seed: input.seed,
+            guidance_scale: GUIDANCE_SCALE,
+          }
+        : { prompt, image_url: input.garments[0].imageUrl, seed: input.seed, guidance_scale: GUIDANCE_SCALE };
 
     let result: FalImageResult;
     try {
