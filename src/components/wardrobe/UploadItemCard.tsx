@@ -22,8 +22,9 @@ type Status = "uploading" | "analyzing" | "review" | "saving" | "saved" | "error
 // safety net, not the primary fix -- it exists so that any failure mode the
 // server-side timeouts don't cover (a genuine platform-level hang, a dropped
 // connection with no error event) still can't leave this card stuck on
-// "Analyzing with AI..." forever, matching the run()/handleReanalyze() catch
-// blocks' existing stated intent below.
+// "Analyzing with AI..." forever. See runAnalysis's catch block below, and
+// the more immediate handleSkipAnalysis escape hatch for the (confirmed
+// live) case where the request is simply slow, not actually hung.
 const ANALYSIS_TIMEOUT_MS = 90_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -62,6 +63,14 @@ export function UploadItemCard({
   // Guards against React's dev-mode StrictMode double-invoking this effect,
   // which would otherwise upload the same file twice.
   const startedRef = useRef(false);
+  // Bumped on every new analysis attempt and by handleSkipAnalysis. A
+  // request only applies its result if this hasn't moved on since it
+  // started -- covers both "user skipped while this was in flight" and
+  // "user hit re-analyze again before the previous attempt returned", so
+  // a slow, superseded response can never clobber the review form (or,
+  // worse, silently revert an already-saved card back to "review") once
+  // the user has moved past it.
+  const analysisAttemptRef = useRef(0);
   // Lazy useState initializer (not a ref read) so the object URL is created
   // exactly once and stays stable across re-renders.
   const [previewUrl] = useState(() => URL.createObjectURL(file));
@@ -70,15 +79,33 @@ export function UploadItemCard({
     return () => URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
+  async function runAnalysis(pathToAnalyze: string) {
+    const attemptId = ++analysisAttemptRef.current;
+    setStatus("analyzing");
+    let result: ClothingAnalysisInput | null = null;
+    try {
+      const analysisResult = await withTimeout(analyzeClothingPhoto(pathToAnalyze), ANALYSIS_TIMEOUT_MS);
+      result = "error" in analysisResult ? null : analysisResult.data.analysis;
+    } catch {
+      // A network failure, a Server Action invocation error, or the
+      // withTimeout guard above all throw instead of returning {error} --
+      // without this catch, the component would stay on "Analyzing with
+      // AI..." forever with no way for the user to escape it. Degrade the
+      // same way a clean analysis {error} does: straight to manual
+      // review, never a dead end.
+      result = null;
+    }
+    if (analysisAttemptRef.current !== attemptId) return; // superseded by a skip or a newer attempt
+    setAnalysis(result);
+    setStatus("review");
+  }
+
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
 
     async function run() {
-      // Tracked locally, not read back from the `path` state, since a
-      // catch block right after setPath() can't rely on that state update
-      // having flushed yet.
-      let uploadedPath: string | null = null;
+      let uploadedPath: string;
       try {
         const validation = validateImageFile(file);
         if (!validation.valid) {
@@ -96,28 +123,13 @@ export function UploadItemCard({
         }
         uploadedPath = uploadResult.data.path;
         setPath(uploadedPath);
-
-        setStatus("analyzing");
-        const analysisResult = await withTimeout(analyzeClothingPhoto(uploadedPath), ANALYSIS_TIMEOUT_MS);
-        setAnalysis("error" in analysisResult ? null : analysisResult.data.analysis);
-        setStatus("review");
       } catch {
-        // A network failure or Server Action invocation error (e.g. a
-        // platform-level timeout) throws instead of returning {error} --
-        // without this catch, the component would stay on "Analyzing with
-        // AI..." forever with no way for the user to escape it, since
-        // nothing after the throw ever runs to change the status. If the
-        // upload itself already succeeded, degrade the same way a clean
-        // analysis {error} does -- straight to manual review, not a
-        // dead-end that forces the user to remove and re-upload.
-        if (uploadedPath) {
-          setAnalysis(null);
-          setStatus("review");
-        } else {
-          setError("Couldn't upload this photo — please try again.");
-          setStatus("error");
-        }
+        setError("Couldn't upload this photo — please try again.");
+        setStatus("error");
+        return;
       }
+
+      await runAnalysis(uploadedPath);
     }
 
     run();
@@ -126,17 +138,22 @@ export function UploadItemCard({
 
   async function handleReanalyze() {
     if (!path) return;
-    setStatus("analyzing");
-    try {
-      const analysisResult = await withTimeout(analyzeClothingPhoto(path), ANALYSIS_TIMEOUT_MS);
-      setAnalysis("error" in analysisResult ? null : analysisResult.data.analysis);
-    } catch {
-      // Same reasoning as run()'s catch above -- a thrown (not returned)
-      // failure here must not leave the card stuck on "Analyzing with
-      // AI..." forever. The photo is already uploaded, so degrade to
-      // manual review rather than a dead end.
-      setAnalysis(null);
-    }
+    await runAnalysis(path);
+  }
+
+  // Lets the user bail out of a slow (or genuinely stuck) analysis
+  // immediately instead of waiting up to ANALYSIS_TIMEOUT_MS -- real-world
+  // analysis latency can legitimately run into the tens of seconds under
+  // heavy AI-provider rate-limit pressure (confirmed live: fallback keys
+  // exhausting their quota and retrying in sequence), which reads as
+  // "stuck" to someone watching a static pulsing label with no progress
+  // indicator and no way to act. Bumping analysisAttemptRef means the
+  // in-flight request's result, whenever it eventually arrives, is
+  // discarded rather than silently overwriting whatever the user has
+  // already typed into the review form by then.
+  function handleSkipAnalysis() {
+    analysisAttemptRef.current++;
+    setAnalysis(null);
     setStatus("review");
   }
 
@@ -187,16 +204,31 @@ export function UploadItemCard({
             </motion.p>
           )}
           {status === "analyzing" && (
-            <motion.p
+            <motion.div
               key="analyzing"
               initial={{ opacity: 0 }}
-              animate={{ opacity: [0.5, 1, 0.5] }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ opacity: { duration: 1.4, repeat: Infinity, ease: "easeInOut" } }}
-              className="text-sm text-ink-secondary"
+              transition={{ duration: 0.15 }}
+              className="flex flex-col gap-1.5"
             >
-              Analyzing with AI…
-            </motion.p>
+              <motion.p
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                className="text-sm text-ink-secondary"
+              >
+                Analyzing with AI…
+              </motion.p>
+              <p className="text-xs text-ink-muted">
+                This can take up to a minute.{" "}
+                <button
+                  className="underline underline-offset-2 transition-colors duration-150 ease-out hover:text-ink"
+                  onClick={handleSkipAnalysis}
+                >
+                  Skip and fill in manually
+                </button>
+              </p>
+            </motion.div>
           )}
           {status === "error" && (
             <motion.div
