@@ -58,6 +58,21 @@ function isDailyQuotaExhausted(err: unknown): boolean {
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 750;
 
+// Bounds every individual HTTP call the SDK makes to Gemini. Without this,
+// a stalled connection (as opposed to a fast HTTP error, which the retry
+// logic above already handles) has no way to ever resolve or reject --
+// confirmed as the likely cause of a real production report where the
+// catalog upload flow stayed on "Analyzing with AI..." indefinitely with
+// no error ever surfacing, across a chain of up to 6 fallback API keys
+// (see FallbackAIProvider) each doing up to MAX_ATTEMPTS retries.
+export const GEMINI_HTTP_TIMEOUT_MS = 20_000;
+
+// Bounds the raw image download from Supabase storage, which happens
+// before any Gemini call and isn't covered by GEMINI_HTTP_TIMEOUT_MS at
+// all -- the same "stalled connection never resolves" risk applies here
+// independently.
+export const IMAGE_FETCH_TIMEOUT_MS = 15_000;
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -147,11 +162,11 @@ export class GeminiAIProvider implements AIProvider {
   private readonly client: GoogleGenAI;
 
   constructor(apiKey: string) {
-    this.client = new GoogleGenAI({ apiKey });
+    this.client = new GoogleGenAI({ apiKey, httpOptions: { timeout: GEMINI_HTTP_TIMEOUT_MS } });
   }
 
   async analyzeClothingImage(imageUrl: string): Promise<ClothingAnalysis> {
-    const imageResponse = await fetch(imageUrl);
+    const imageResponse = await fetch(imageUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
     if (!imageResponse.ok) {
       throw new Error(`Could not fetch image for analysis (${imageResponse.status})`);
     }
