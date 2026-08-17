@@ -20,7 +20,9 @@ function pairwiseAverage(garments: CandidateGarment[], fn: (a: CandidateGarment,
 }
 
 export function scoreOutfitCandidate(garments: CandidateGarment[]): OutfitCandidate {
-  const color = pairwiseAverage(garments, (a, b) => colorCompatibilityScore(a.primaryColor, b.primaryColor));
+  const color = pairwiseAverage(garments, (a, b) =>
+    colorCompatibilityScore(a.primaryColor, b.primaryColor, a.primaryColorHex, b.primaryColorHex)
+  );
   const formality = pairwiseAverage(garments, (a, b) => formalityScore(a.formalityLevel, b.formalityLevel));
   const style = pairwiseAverage(garments, (a, b) => styleScore(a.style, b.style));
   const pattern = pairwiseAverage(garments, (a, b) => patternScore(a.pattern, b.pattern));

@@ -57,4 +57,19 @@ describe("scoreOutfitCandidate", () => {
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.score).toBeLessThanOrEqual(100);
   });
+
+  it("passes each garment's hex through to the color scorer, refining the color sub-score when hex is present", () => {
+    const shirtNoHex = garment({ role: "top", primaryColor: "teal", primaryColorHex: null });
+    const pantsNoHex = garment({ role: "bottom", primaryColor: "coral", primaryColorHex: null });
+    const shirtWithHex = garment({ role: "top", primaryColor: "teal", primaryColorHex: "#008080" });
+    const pantsWithHex = garment({ role: "bottom", primaryColor: "coral", primaryColorHex: "#ff6f61" });
+
+    const withoutHex = scoreOutfitCandidate([shirtNoHex, pantsNoHex]);
+    const withHex = scoreOutfitCandidate([shirtWithHex, pantsWithHex]);
+
+    // "teal" and "coral" aren't in the name palette, so without hex both
+    // fall back to the same flat unrecognized-pair score -- with hex, the
+    // near-complementary hue relationship should be visible in the result.
+    expect(withHex.scoreBreakdown.color).not.toBe(withoutHex.scoreBreakdown.color);
+  });
 });
