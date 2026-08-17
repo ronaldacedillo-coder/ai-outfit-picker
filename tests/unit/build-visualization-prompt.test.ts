@@ -92,9 +92,15 @@ describe("buildVisualizationPrompt", () => {
       const prompt = buildVisualizationPrompt([jacket, shirt, pants]).toLowerCase();
       expect(prompt).toContain("do not add a tie");
       expect(prompt).toContain("do not add a pocket square");
-      expect(prompt).toContain("do not add a belt");
       expect(prompt).toContain("do not add a vest");
       expect(prompt).toContain("do not add a sweater");
+    });
+
+    // Unlike the other accessories above, a belt gets a positive styling
+    // instruction instead of a suppression -- see the "belt styling" suite.
+    it("never suppresses the belt, even when no bottom is selected", () => {
+      const prompt = buildVisualizationPrompt([shirt]).toLowerCase();
+      expect(prompt).not.toContain("do not add a belt");
     });
 
     it("does not warn against a garment slot that was actually selected", () => {
@@ -503,6 +509,46 @@ describe("buildVisualizationPrompt", () => {
     it("always includes the generic fit-preservation line even with no visualDetails", () => {
       const prompt = buildVisualizationPrompt([shirt]).toLowerCase();
       expect(prompt).toContain("do not slim, loosen, lengthen, shorten, or otherwise resize");
+    });
+  });
+
+  describe("belt styling", () => {
+    it("adds a belt-styling line when a bottom garment is selected", () => {
+      const prompt = buildVisualizationPrompt([jacket, shirt, pants]).toLowerCase();
+      expect(prompt).toContain("add a slim black leather dress belt with a simple, understated buckle");
+      expect(prompt).toContain("worn through the belt loops of the pants/trousers");
+      expect(prompt).toContain("do not crop the shot at or above the waist");
+    });
+
+    it("does not add a belt-styling line when no bottom garment is selected", () => {
+      const prompt = buildVisualizationPrompt([jacket, shirt]).toLowerCase();
+      expect(prompt).not.toContain("leather belt");
+      expect(prompt).not.toContain("leather dress belt");
+    });
+
+    it("uses a black belt for cool/neutral-toned pants", () => {
+      const navyPants: OutfitGarmentInput = { ...pants, primaryColor: "navy" };
+      const prompt = buildVisualizationPrompt([navyPants]).toLowerCase();
+      expect(prompt).toContain("add a slim black leather");
+    });
+
+    it("uses a brown belt for warm-toned pants", () => {
+      const khakiPants: OutfitGarmentInput = { ...pants, primaryColor: "khaki" };
+      const prompt = buildVisualizationPrompt([khakiPants]).toLowerCase();
+      expect(prompt).toContain("add a slim brown leather");
+    });
+
+    it("uses a slim dress belt for a business-formal or business-casual outfit", () => {
+      const prompt = buildVisualizationPrompt([{ ...pants, style: "business_casual" }]).toLowerCase();
+      expect(prompt).toContain("slim");
+      expect(prompt).toContain("dress belt");
+    });
+
+    it("uses a relaxed belt (not a dress belt) for a casual outfit", () => {
+      const casualPants: OutfitGarmentInput = { ...pants, style: "casual" };
+      const prompt = buildVisualizationPrompt([casualPants]).toLowerCase();
+      expect(prompt).toContain("leather belt with a simple buckle");
+      expect(prompt).not.toContain("dress belt");
     });
   });
 
