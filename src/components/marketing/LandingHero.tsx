@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
+import { LogoFull } from "@/components/brand/Logo";
 
 // Signature visual: an abstract fabric swatch built from a herringbone weave
 // pattern (menswear's own material vernacular -- thread, weave, tailoring
@@ -64,9 +65,7 @@ export function LandingHero() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", bounce: 0, duration: 0.5 }}
       >
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-ink-muted">
-          ARROW Philippines &times; AI styling
-        </p>
+        <LogoFull className="h-10 w-auto sm:h-12" />
         <h1 className="font-display text-[2.75rem] font-medium leading-[1.02] tracking-[-0.03em] text-ink sm:text-6xl lg:text-[5rem]">
           Try the outfit
           <br />

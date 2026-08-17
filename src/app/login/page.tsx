@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { login } from "./actions";
+import { LogoIcon } from "@/components/brand/Logo";
 
 export default async function LoginPage({
   searchParams,
@@ -10,6 +11,7 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 animate-materialize">
+      <LogoIcon size={40} />
       <div>
         <h1 className="font-display text-3xl font-medium text-ink">Welcome back</h1>
         <p className="mt-1 text-sm text-ink-secondary">

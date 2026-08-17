@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ResetPasswordForm } from "@/components/auth/ResetPasswordForm";
+import { LogoIcon } from "@/components/brand/Logo";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,8 @@ export default async function ResetPasswordPage({
   // to parse out of a Supabase error message.
   if (!user || error) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-6 text-center animate-materialize">
+      <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-4 px-6 text-center animate-materialize">
+        <LogoIcon size={40} />
         <h1 className="font-display text-3xl font-medium text-ink">Link expired</h1>
         <p className="text-sm text-ink-secondary">
           This password reset link is invalid or has expired. Please request a new one.
@@ -38,6 +40,7 @@ export default async function ResetPasswordPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 animate-materialize">
+      <LogoIcon size={40} />
       <div>
         <h1 className="font-display text-3xl font-medium text-ink">Set a new password</h1>
       </div>

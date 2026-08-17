@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { signup } from "./actions";
 import { RoleSelector } from "./RoleSelector";
+import { LogoIcon } from "@/components/brand/Logo";
 
 export default async function SignupPage({
   searchParams,
@@ -11,7 +12,8 @@ export default async function SignupPage({
 
   if (params["check-email"]) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-6 text-center animate-materialize">
+      <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-4 px-6 text-center animate-materialize">
+        <LogoIcon size={40} />
         <h1 className="font-display text-3xl font-medium text-ink">Check your email</h1>
         <p className="text-sm text-ink-secondary">
           We sent you a confirmation link. Click it to activate your account,
@@ -29,6 +31,7 @@ export default async function SignupPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-12 animate-materialize">
+      <LogoIcon size={40} />
       <div>
         <h1 className="font-display text-3xl font-medium text-ink">Create your account</h1>
         <p className="mt-1 text-sm text-ink-secondary">

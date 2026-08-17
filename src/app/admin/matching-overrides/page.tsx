@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/requireRole";
 import { AppNav } from "@/components/nav/AppNav";
+import { LogoIcon } from "@/components/brand/Logo";
 import { listMatchingOverrides } from "./actions";
 import { MatchingOverrideForm } from "./MatchingOverrideForm";
 import { MatchingOverrideList } from "./MatchingOverrideList";
@@ -46,11 +47,14 @@ export default async function MatchingOverridesPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full min-w-0 max-w-4xl flex-col gap-8 px-6 py-16">
       <header className="flex min-w-0 flex-col gap-4 border-b border-border-subtle pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="font-display text-2xl font-medium text-ink">Matching Rules</h1>
-          <p className="mt-1 text-sm text-ink-secondary">
-            Curated combinations that always outrank the AI recommendation engine.
-          </p>
+        <div className="flex min-w-0 items-center gap-3">
+          <LogoIcon size={36} />
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl font-medium text-ink">Matching Rules</h1>
+            <p className="mt-1 text-sm text-ink-secondary">
+              Curated combinations that always outrank the AI recommendation engine.
+            </p>
+          </div>
         </div>
         <AppNav role="ADMIN" activePath="/admin/matching-overrides" />
       </header>
