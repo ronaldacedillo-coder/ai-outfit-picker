@@ -65,6 +65,14 @@ describe("buildVisualizationPrompt", () => {
     expect(prompt.toLowerCase()).toContain("photorealistic");
   });
 
+  it("instructs a single output photograph with no visible reference images or collage layout (regression: the multi-image Kontext model composited the reference garment photos into the output alongside the model)", () => {
+    const prompt = buildVisualizationPrompt([jacket, shirt, pants]).toLowerCase();
+    expect(prompt).toContain("single, complete photograph containing only the model");
+    expect(prompt).toContain("do not include them, or any crop, thumbnail, or cutout of them");
+    expect(prompt).toContain("do not create a collage, grid, side-by-side comparison, or moodboard");
+    expect(prompt).toContain("no collage, no visible reference images, no other panels or frames");
+  });
+
   describe("dynamic negative constraints", () => {
     it("excludes known accessories not present in any selected garment", () => {
       const prompt = buildVisualizationPrompt([jacket, shirt, pants]).toLowerCase();

@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 2;
+export const PROMPT_VERSION = 3;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -239,6 +239,19 @@ export function buildVisualizationPrompt(
     "The outfit consists of exactly:",
     garmentLines,
     "",
+    // Output-composition lock -- the multi-image Kontext model receives
+    // the reference garment photos as separate input images and, without
+    // an explicit instruction otherwise, sometimes composites them into
+    // the output canvas alongside the generated model (a collage/moodboard
+    // layout with the individual reference photos floating around the
+    // subject) instead of using them purely as fidelity references.
+    // Confirmed in production: a real generation showed the model in the
+    // center with all 3 reference garment photos still visible as separate
+    // floating images in the four corners of the frame.
+    "Output exactly one single, complete photograph containing only the model wearing the outfit.",
+    "The reference images are for fidelity only -- do not include them, or any crop, thumbnail, or cutout of them, as separate visible elements anywhere in the output image.",
+    "Do not create a collage, grid, side-by-side comparison, or moodboard layout.",
+    "",
     // 2. Garment identity lock
     ...buildIdentityLockLines(garments),
     // 3. Closure / collar / construction details
@@ -265,6 +278,7 @@ export function buildVisualizationPrompt(
     "Photorealistic fabric texture.",
     "Sharp clothing details.",
     "Natural posture.",
+    "Single unified photograph -- no collage, no visible reference images, no other panels or frames.",
     "",
     "The clothing is the primary visual focus.",
     "Generate only the selected garments listed above. Do not add any clothing or accessories that are not explicitly selected.",
