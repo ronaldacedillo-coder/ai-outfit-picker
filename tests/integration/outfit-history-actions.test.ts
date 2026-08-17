@@ -94,7 +94,7 @@ async function seedFailedLook(userId: string) {
 describe("listLooks action", () => {
   it("returns the user's own completed and failed looks, newest first", async () => {
     const user = await createTestUser();
-    const { outfitId: completedId } = await seedCompletedLook(user.id);
+    const { outfitId: completedId, itemIds } = await seedCompletedLook(user.id);
     const failedId = await seedFailedLook(user.id);
 
     const { listLooks } = await import("@/app/dashboard/outfit-history-actions");
@@ -111,6 +111,12 @@ describe("listLooks action", () => {
     expect(completed.title).toBe("Navy Business Look");
     expect(completed.style).toBe("business_formal");
     expect(completed.compatibilityScore).toBe(92);
+    // Each garment is returned with its own clothing_item_id so the UI can
+    // link it to "find other matches for this item" -- regression check
+    // for the outfit_items RLS bug (migration 0014) that left this array
+    // empty for every real look until now.
+    expect(completed.items.map((i) => i.id).sort()).toEqual([...itemIds].sort());
+    expect(completed.items.every((i) => i.label.length > 0)).toBe(true);
 
     const failed = result.data.looks.find((l) => l.id === failedId)!;
     expect(failed.status).toBe("failed");

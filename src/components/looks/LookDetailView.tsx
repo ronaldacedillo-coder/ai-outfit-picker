@@ -74,7 +74,8 @@ export function LookDetailView({ look }: { look: LookDetail }) {
         {look.items.map((item) => (
           <Link
             key={item.id}
-            href="/dashboard"
+            href={`/dashboard/outfit-picker/${item.id}`}
+            title={`See other matches for this ${item.primaryColor} ${item.subcategory.replace(/_/g, " ")}`}
             className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium uppercase tracking-wide text-ink-secondary transition-colors duration-150 ease-out hover:bg-border"
           >
             {item.primaryColor} {item.subcategory.replace(/_/g, " ")}

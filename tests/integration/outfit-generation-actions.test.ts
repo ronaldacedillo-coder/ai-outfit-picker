@@ -126,6 +126,33 @@ describe("generateOutfitVisualization action", () => {
     await user.cleanup();
   });
 
+  it("populates outfit_items for the realistic shared-catalog case, where the generating user does not own the clothing_items row (regression: the outfit_items RLS policy required clothing_items.user_id = auth.uid(), a leftover from before the catalog became shared/admin-owned -- silently rejecting every insert except when the generating user happened to own the item, which is exactly why this went undetected: every other test here seeds its own self-owned item)", async () => {
+    const catalogOwner = await createTestUser("ADMIN");
+    const shopper = await createTestUser("CUSTOMER");
+    const itemId = await seedClothingItem(catalogOwner.id, "top", "shared-catalog-white");
+
+    const result = await generateOutfitVisualization([itemId], shopper.client, fakeSuccessProvider);
+    if ("error" in result) throw new Error(result.error);
+
+    const admin2 = supabaseAdmin();
+    const { data: outfitItems } = await admin2
+      .from("outfit_items")
+      .select("clothing_item_id")
+      .eq("outfit_id", result.data.outfitId);
+    expect(outfitItems).toHaveLength(1);
+    expect(outfitItems![0].clothing_item_id).toBe(itemId);
+
+    const { data: outfit2 } = await admin2
+      .from("outfits")
+      .select("generated_image_url")
+      .eq("id", result.data.outfitId)
+      .single();
+    await admin2.storage.from("clothing-photos").remove([`${catalogOwner.id}/top.jpg`]);
+    await admin2.storage.from("outfit-images").remove([outfit2!.generated_image_url]);
+    await catalogOwner.cleanup();
+    await shopper.cleanup();
+  });
+
   it("marks the outfit failed and returns a safe error when generation fails", async () => {
     const user = await createTestUser();
     const itemId = await seedClothingItem(user.id, "bottom", "gray");

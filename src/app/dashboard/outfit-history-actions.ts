@@ -48,7 +48,17 @@ export interface LookSummary {
   imageSignedUrl: string | null;
   compatibilityScore: number | null;
   createdAt: string;
-  itemLabels: string[];
+  items: LookClickableItem[];
+}
+
+// A garment as it belongs in a specific look, with enough to render a
+// clickable chip that finds other matches for that same catalog item
+// (links to /dashboard/outfit-picker/[itemId]) -- distinct from
+// LookItemSummary, which carries only what generateLookTitle/
+// deriveLookStyle need and deliberately has no id.
+export interface LookClickableItem {
+  id: string;
+  label: string;
 }
 
 export async function listLooks(injectedClient?: SupabaseClient): Promise<ActionResult<{ looks: LookSummary[] }>> {
@@ -75,14 +85,17 @@ export async function listLooks(injectedClient?: SupabaseClient): Promise<Action
         .eq("outfit_id", outfit.id);
 
       const rows = (itemRows ?? []) as unknown as OutfitItemQueryRow[];
-      const items: LookItemSummary[] = rows
-        .filter((r) => r.clothing_items)
-        .map((r) => ({
-          role: r.role,
-          subcategory: r.clothing_items!.clothing_subcategories?.name ?? "",
-          primaryColor: r.clothing_items!.primary_color ?? "",
-          style: r.clothing_items!.style ?? "casual",
-        }));
+      const visibleRows = rows.filter((r) => r.clothing_items);
+      const items: LookItemSummary[] = visibleRows.map((r) => ({
+        role: r.role,
+        subcategory: r.clothing_items!.clothing_subcategories?.name ?? "",
+        primaryColor: r.clothing_items!.primary_color ?? "",
+        style: r.clothing_items!.style ?? "casual",
+      }));
+      const clickableItems: LookClickableItem[] = visibleRows.map((r) => ({
+        id: r.clothing_item_id,
+        label: `${r.clothing_items!.primary_color ?? ""} ${(r.clothing_items!.clothing_subcategories?.name ?? "").replace(/_/g, " ")}`.trim(),
+      }));
 
       const imageSignedUrl =
         outfit.generation_status === "completed" && outfit.generated_image_url
@@ -97,7 +110,7 @@ export async function listLooks(injectedClient?: SupabaseClient): Promise<Action
         imageSignedUrl,
         compatibilityScore: outfit.compatibility_score,
         createdAt: outfit.created_at,
-        itemLabels: items.map((i) => `${i.primaryColor} ${i.subcategory.replace(/_/g, " ")}`.trim()),
+        items: clickableItems,
       };
     })
   );
