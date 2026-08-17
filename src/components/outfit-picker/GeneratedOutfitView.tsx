@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import Link from "next/link";
 import type { DisplayGarment } from "./types";
 
 export function GeneratedOutfitView({
@@ -31,12 +32,14 @@ export function GeneratedOutfitView({
         className="flex flex-wrap gap-2"
       >
         {garments.map((g) => (
-          <span
+          <Link
             key={g.id}
-            className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium uppercase tracking-wide text-ink-secondary"
+            href={`/dashboard/outfit-picker/${g.id}`}
+            title={`See other matches for this ${g.primaryColor} ${g.subcategory.replace(/_/g, " ")}`}
+            className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium uppercase tracking-wide text-ink-secondary transition-colors duration-150 ease-out hover:bg-border"
           >
             {g.primaryColor} {g.subcategory.replace(/_/g, " ")}
-          </span>
+          </Link>
         ))}
       </motion.div>
 
