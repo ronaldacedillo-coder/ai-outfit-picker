@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 9;
+export const PROMPT_VERSION = 10;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -305,7 +305,7 @@ function buildBeltLines(garments: OutfitGarmentInput[]): string[] {
     ? `a slim ${beltColor} leather dress belt with a simple, understated buckle`
     : `a ${beltColor} leather belt with a simple buckle`;
 
-  return [
+  const lines = [
     `Add ${beltDescription} at the waistline, worn through the belt loops of the pants/trousers, coordinated with the outfit's overall color palette and formality.`,
     "The belt should read as a natural, appropriate finishing accessory -- not a focal point -- and must not clash with or distract from the primary selected garments.",
     // Confirmed via a real generation: without this explicit framing
@@ -314,6 +314,42 @@ function buildBeltLines(garments: OutfitGarmentInput[]): string[] {
     // is otherwise followed correctly.
     "The composition must frame far enough down to clearly show the waistline and belt -- do not crop the shot at or above the waist.",
   ];
+
+  // Confirmed against five real generated outfits: whenever outerwear is
+  // also selected, the belt is correctly added but rendered UNDER a
+  // fully buttoned-closed jacket, which physically covers the entire
+  // waistline -- the belt is never visible in the output despite being
+  // technically present. (Every outfit with no outerwear in the sample
+  // showed the belt clearly; every outfit with outerwear did not.) The
+  // fix isn't a stronger belt instruction -- the belt is already being
+  // added -- it's telling the model to style the jacket so the belt it's
+  // already adding can actually be seen.
+  //
+  // An unbuttoned-jacket instruction alone was not enough: a follow-up
+  // real generation opened the jacket as instructed, but the jacket's own
+  // hem/front-panel width at hip height still covered the sides of the
+  // waistline, leaving only a narrow center gap in which no belt buckle
+  // happened to land -- still no visible belt. Naming the buckle's
+  // required position explicitly (centered in that gap, at the same
+  // height as the waistband, not lower) targets the actual remaining
+  // failure mode instead of restating "be visible" in different words.
+  // A second real generation with the two lines above correctly opened
+  // the jacket, but a different garment then hid the belt instead: the
+  // top/shirt worn underneath was rendered untucked, its hem hanging down
+  // over the waistband and covering exactly the center gap the buckle
+  // was supposed to occupy. Two separate layers can independently hide
+  // the same belt -- the jacket from the sides, an untucked shirt hem
+  // from the front -- so both must be constrained, not just one.
+  const hasOuterwear = garments.some((g) => normalize(g.category) === "outerwear");
+  if (hasOuterwear) {
+    lines.push(
+      "The outerwear must be worn open and unbuttoned at the front, not buttoned closed -- a closed jacket would hide the belt added above.",
+      "The belt buckle must be positioned at the center front of the waistline, in the gap between the open jacket's two front panels, at the same height as the waistband -- clearly visible, not lower than the waistband, and not covered by either side of the open jacket.",
+      "Any top or shirt worn underneath the open outerwear must be tucked into the pants/trousers -- its hem must not hang down over the waistband, since an untucked hem would cover the belt and buckle just as much as a closed jacket would."
+    );
+  }
+
+  return lines;
 }
 
 // Section 8: occasion/style-context direction -- deliberately scoped to
