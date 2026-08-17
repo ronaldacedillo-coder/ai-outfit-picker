@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 6;
+export const PROMPT_VERSION = 7;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -181,24 +181,35 @@ function isShortSleeve(garment: OutfitGarmentInput): boolean {
   return sleeve.includes("short") || normalize(garment.subcategory).includes("shortsleeve");
 }
 
-// Section 2c: short-sleeve-under-outerwear layering consistency -- a
-// genuinely short sleeve ends above the elbow, nowhere near a jacket's
-// cuff opening at the wrist. Without an explicit instruction, FLUX
-// defaults to the common "dress shirt cuff peeking out of a blazer
-// sleeve" styling convention regardless of whether the actual top
-// underneath has a sleeve anywhere near that long -- confirmed in
-// production: a short-sleeve shirt worn under a blazer still showed
-// shirt fabric at the blazer's cuff, which isn't physically possible
-// for a sleeve that short. Only fires when outerwear is actually
-// selected, since a short-sleeve top with nothing over it has nothing
-// to be layering-inconsistent with.
+// Section 2c: short-sleeve-under-outerwear layering consistency.
+//
+// A genuinely short sleeve ends above the elbow, nowhere near a jacket's
+// cuff opening at the wrist. Four real generations confirmed FLUX has a
+// strong, hard-to-override learned habit of rendering *some* cuff-like
+// detail at a jacket's sleeve opening regardless of instructions telling
+// it not to render anything there at all -- suppressing the element
+// outright did not work even with increasingly forceful wording and a
+// raised guidance_scale.
+//
+// Different strategy: instead of fighting that habit, redirect its
+// color. If FLUX renders a cuff-like detail at the jacket's sleeve
+// opening anyway, instructing it to color that detail to match the
+// JACKET (not the shirt) means the visible result reads as a jacket
+// construction detail (a sleeve tab/placket in the jacket's own fabric),
+// not a shirt that's physically too short to be there -- eliminating the
+// actual visible fidelity error (a mismatched-color phantom cuff) even
+// if the underlying rendering habit itself isn't suppressed. The shirt
+// keeps its correct color everywhere it's actually visible (collar,
+// chest); only the illusory cuff area is redirected.
 function buildLayeringConsistencyLines(garments: OutfitGarmentInput[]): string[] {
-  if (!garments.some((g) => normalize(g.category) === "outerwear")) return [];
+  const outerwear = garments.find((g) => normalize(g.category) === "outerwear");
+  if (!outerwear) return [];
+  const outerwearIndex = garments.indexOf(outerwear);
   const lines: string[] = [];
   garments.forEach((garment, index) => {
     if (normalize(garment.category) !== "top" || !isShortSleeve(garment)) return;
     lines.push(
-      `Garment ${index + 1} (the ${humanize(garment.subcategory)}) has short sleeves ending above the elbow -- it has no fabric of any kind near the wrist or forearm. Rendering a shirt cuff peeking out of a jacket sleeve is a common studio-photography default for LONG-sleeve shirts, but it does not apply here: this garment's sleeves are physically too short to reach the jacket's cuff. Do not render any cuff, fabric edge, hem, trim, button, or color from garment ${index + 1} at the outerwear's sleeve opening. The jacket sleeve must end directly at bare skin -- the visible wrist and forearm there must be plain skin, continuous with the model's actual skin tone, with zero visible fabric from garment ${index + 1}.`
+      `Garment ${index + 1} (the ${humanize(garment.subcategory)}) has short sleeves ending above the elbow -- its fabric cannot physically reach the wrist. If any band, placket, trim, or cuff-like detail appears at the sleeve opening of garment ${outerwearIndex + 1} (the ${humanize(outerwear.subcategory)}), that detail must be the exact same ${outerwear.primaryColor} color and fabric as garment ${outerwearIndex + 1} itself -- never the color of garment ${index + 1}. Everywhere garment ${index + 1} is actually visible (collar, chest, torso), keep its own correct ${garment.primaryColor} color -- only right at the outerwear's cuff must garment ${index + 1}'s color never appear.`
     );
   });
   return lines;
@@ -210,12 +221,14 @@ function buildLayeringConsistencyLines(garments: OutfitGarmentInput[]): string[]
 // than one place (identity lock + category-substitution; the
 // composition lock appears twice for the same reason).
 function buildLayeringConsistencyNegativeLines(garments: OutfitGarmentInput[]): string[] {
-  if (!garments.some((g) => normalize(g.category) === "outerwear")) return [];
+  const outerwear = garments.find((g) => normalize(g.category) === "outerwear");
+  if (!outerwear) return [];
+  const outerwearIndex = garments.indexOf(outerwear);
   const lines: string[] = [];
   garments.forEach((garment, index) => {
     if (normalize(garment.category) !== "top" || !isShortSleeve(garment)) return;
     lines.push(
-      `Do not add a shirt cuff or any fabric at the sleeve opening of the outerwear -- garment ${index + 1}'s sleeves are too short to reach there. Show bare wrist and forearm instead.`
+      `If the sleeve opening of garment ${outerwearIndex + 1} shows any cuff-like detail, it must be ${outerwear.primaryColor} to match garment ${outerwearIndex + 1} -- never garment ${index + 1}'s color.`
     );
   });
   return lines;

@@ -331,16 +331,16 @@ describe("buildVisualizationPrompt", () => {
       visualDetails: { sleeve: "long sleeve" },
     };
 
-    it("forbids visible shirt fabric at the jacket cuff when the top underneath is short-sleeved (regression: a short-sleeve shirt worn under a blazer still showed fabric at the blazer's cuff, twice -- first fix wasn't forceful enough to override FLUX's learned convention)", () => {
+    it("redirects any cuff-like detail at the jacket's sleeve opening to the jacket's own color instead of the shirt's (strategy pivot after four real generations confirmed FLUX won't stop rendering a cuff-shaped element there outright -- recoloring it to match the jacket removes the visible fidelity error even if the element itself persists)", () => {
       const prompt = buildVisualizationPrompt([grayBlazer, shortSleeveShirt]).toLowerCase();
       expect(prompt).toContain("garment 2 (the short sleeve shirt) has short sleeves ending above the elbow");
-      expect(prompt).toContain("physically too short to reach the jacket's cuff");
-      expect(prompt).toContain("the jacket sleeve must end directly at bare skin");
-      expect(prompt).toContain("zero visible fabric from garment 2");
+      expect(prompt).toContain("must be the exact same grey color and fabric as garment 1 itself");
+      expect(prompt).toContain("never the color of garment 2");
+      expect(prompt).toContain("keep its own correct navy blue color");
       // Reinforced a second time among the negative constraints, mirroring
       // the redundancy already used for other high-error-rate constraints.
-      expect(prompt).toContain("do not add a shirt cuff or any fabric at the sleeve opening of the outerwear");
-      expect(prompt).toContain("garment 2's sleeves are too short to reach there");
+      expect(prompt).toContain("if the sleeve opening of garment 1 shows any cuff-like detail, it must be grey to match garment 1");
+      expect(prompt).toContain("never garment 2's color");
     });
 
     it("does not fire when the top underneath is already long-sleeved", () => {
