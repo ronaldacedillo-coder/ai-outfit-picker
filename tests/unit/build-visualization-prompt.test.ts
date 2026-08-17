@@ -251,6 +251,56 @@ describe("buildVisualizationPrompt", () => {
     });
   });
 
+  describe("outerwear sleeve-length lock", () => {
+    const grayBlazer: OutfitGarmentInput = {
+      imageUrl: "https://example.com/blazer.jpg",
+      role: "outerwear",
+      category: "outerwear",
+      subcategory: "blazer",
+      primaryColor: "grey",
+      pattern: "solid",
+      style: "business_casual",
+    };
+    const shortSleeveShirt: OutfitGarmentInput = {
+      imageUrl: "https://example.com/shirt.jpg",
+      role: "top",
+      category: "top",
+      subcategory: "short_sleeve_shirt",
+      primaryColor: "navy blue",
+      pattern: "solid",
+      style: "casual",
+    };
+    const pants: OutfitGarmentInput = {
+      imageUrl: "https://example.com/pants.jpg",
+      role: "bottom",
+      category: "bottom",
+      subcategory: "pants",
+      primaryColor: "beige",
+      pattern: "solid",
+      style: "casual",
+    };
+
+    it("locks a blazer to long sleeves even without a captured sleeve visualDetail (regression: a grey blazer paired with a short-sleeve shirt was rendered short-sleeved)", () => {
+      const prompt = buildVisualizationPrompt([grayBlazer, shortSleeveShirt, pants]).toLowerCase();
+      expect(prompt).toContain("garment 1 (the blazer) is tailored outerwear");
+      expect(prompt).toContain("must have long sleeves reaching the wrist");
+      expect(prompt).toContain("never short sleeves, cropped sleeves, or rolled-up sleeves");
+      expect(prompt).toContain("regardless of the sleeve length of any other garment in this outfit");
+    });
+
+    it("does not apply the sleeve-length lock to non-outerwear garments", () => {
+      const prompt = buildVisualizationPrompt([shortSleeveShirt, pants]).toLowerCase();
+      expect(prompt).not.toContain("is tailored outerwear");
+    });
+
+    it("applies the lock to every outerwear garment when more than one is somehow selected", () => {
+      const cardigan: OutfitGarmentInput = { ...grayBlazer, subcategory: "cardigan" };
+      const prompt = buildVisualizationPrompt([grayBlazer, cardigan]).toLowerCase();
+      expect(prompt).toContain("garment 1 (the blazer) is tailored outerwear");
+      expect(prompt).toContain("garment 2 (the cardigan) is tailored outerwear");
+    });
+  });
+
   describe("color, pattern, and silhouette fidelity", () => {
     it("adds an exact hex-anchored color line when primaryColorHex is provided", () => {
       const withHex: OutfitGarmentInput = { ...shirt, primaryColorHex: "#1B2A4A" };
@@ -284,6 +334,30 @@ describe("buildVisualizationPrompt", () => {
       const prompt = buildVisualizationPrompt([withDetails]).toLowerCase();
       expect(prompt).toContain("collar: spread collar -- preserve exactly");
       expect(prompt).toContain("sleeve: long sleeve, barrel cuff -- preserve exactly");
+    });
+
+    it("attributes construction details to a specific garment by number and name so multiple garments' details aren't cross-applied (regression: a blazer's sleeve length was cross-applied from an adjacent short-sleeve shirt in production)", () => {
+      const blazerWithDetails: OutfitGarmentInput = {
+        imageUrl: "https://example.com/blazer.jpg",
+        role: "outerwear",
+        category: "outerwear",
+        subcategory: "blazer",
+        primaryColor: "grey",
+        pattern: "solid",
+        style: "business_casual",
+        visualDetails: { lapel: "notch lapel", sleeve: "long sleeve" },
+      };
+      const shortSleeveShirt: OutfitGarmentInput = {
+        ...shirt,
+        subcategory: "short_sleeve_shirt",
+        visualDetails: { collar: "spread collar", sleeve: "short sleeve" },
+      };
+      const prompt = buildVisualizationPrompt([blazerWithDetails, shortSleeveShirt]).toLowerCase();
+      expect(prompt).toContain("garment 1 (the blazer) construction details:");
+      expect(prompt).toContain("garment 2 (the short sleeve shirt) construction details:");
+      // Each sleeve line must be scoped to its own garment, not left as a
+      // bare, unattributed "sleeve: X" line that could apply to either.
+      expect(prompt).not.toMatch(/^sleeve:/m);
     });
 
     it("surfaces a silhouette detail as its own preserve-exactly line", () => {

@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 3;
+export const PROMPT_VERSION = 4;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -134,16 +134,45 @@ function buildIdentityLockLines(garments: OutfitGarmentInput[]): string[] {
 // Section 3: closure/collar/construction details -- surfaces whatever the
 // AI analysis captured in visualDetails (collar, lapel, sleeve, closure,
 // etc.) as explicit preserve-exactly instructions, per garment.
+//
+// Each garment's details are attributed to that garment by number and
+// name rather than emitted as one flat undifferentiated list -- with
+// multiple garments' "sleeve: X" lines sitting one after another with no
+// indication of which garment each belongs to, FLUX has no way to tell
+// them apart. Confirmed in production: a grey blazer (long-sleeve by
+// construction) was rendered with short sleeves matching a short-sleeve
+// shirt selected in the same outfit -- the two garments' sleeve lines
+// were adjacent in the prompt with nothing distinguishing them.
 function buildConstructionDetailLines(garments: OutfitGarmentInput[]): string[] {
   const lines: string[] = [];
-  for (const garment of garments) {
+  garments.forEach((garment, index) => {
     const details = garment.visualDetails;
-    if (!details) continue;
-    for (const [key, value] of Object.entries(details)) {
-      if (key === "silhouette" || !value) continue; // silhouette is handled in its own section
-      lines.push(`${humanize(key)}: ${value} -- preserve exactly.`);
+    if (!details) return;
+    const entries = Object.entries(details).filter(([key, value]) => key !== "silhouette" && value);
+    if (entries.length === 0) return;
+    lines.push(`Garment ${index + 1} (the ${humanize(garment.subcategory)}) construction details:`);
+    for (const [key, value] of entries) {
+      lines.push(`- ${humanize(key)}: ${value} -- preserve exactly for this garment only.`);
     }
-  }
+  });
+  return lines;
+}
+
+// Section 2b: outerwear sleeve-length lock -- tailored jackets (blazers,
+// suit jackets, full-zip jackets, cardigans, etc.) are long-sleeved by
+// construction; this is a garment-type invariant, not a detail that
+// should depend on what any other garment in the outfit looks like.
+// Stated unconditionally and independent of buildConstructionDetailLines
+// above, since that section only fires when the AI analysis happened to
+// capture a sleeve value -- this rule applies regardless.
+function buildOuterwearSleeveLockLines(garments: OutfitGarmentInput[]): string[] {
+  const lines: string[] = [];
+  garments.forEach((garment, index) => {
+    if (normalize(garment.category) !== "outerwear") return;
+    lines.push(
+      `Garment ${index + 1} (the ${humanize(garment.subcategory)}) is tailored outerwear -- it must have long sleeves reaching the wrist. Never short sleeves, cropped sleeves, or rolled-up sleeves, regardless of the sleeve length of any other garment in this outfit.`
+    );
+  });
   return lines;
 }
 
@@ -254,6 +283,8 @@ export function buildVisualizationPrompt(
     "",
     // 2. Garment identity lock
     ...buildIdentityLockLines(garments),
+    // 2b. Outerwear sleeve-length lock
+    ...buildOuterwearSleeveLockLines(garments),
     // 3. Closure / collar / construction details
     ...buildConstructionDetailLines(garments),
     // 4. Color fidelity
