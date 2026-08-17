@@ -550,6 +550,25 @@ describe("buildVisualizationPrompt", () => {
       expect(prompt).toContain("leather belt with a simple buckle");
       expect(prompt).not.toContain("dress belt");
     });
+
+    it("instructs the jacket to be open, the buckle centered, and the shirt tucked in when outerwear and a bottom are both selected (regression: real generations showed a closed jacket hides the belt, then -- after fixing that -- an untucked shirt hem independently hid it too)", () => {
+      const prompt = buildVisualizationPrompt([jacket, shirt, pants]).toLowerCase();
+      expect(prompt).toContain("worn open and unbuttoned at the front");
+      expect(prompt).toContain("a closed jacket would hide the belt added above");
+      expect(prompt).toContain("belt buckle must be positioned at the center front of the waistline");
+      expect(prompt).toContain("gap between the open jacket's two front panels");
+      expect(prompt).toContain("must be tucked into the pants/trousers");
+    });
+
+    it("does not add the open-jacket instruction when no outerwear is selected", () => {
+      const prompt = buildVisualizationPrompt([shirt, pants]).toLowerCase();
+      expect(prompt).not.toContain("worn open and unbuttoned");
+    });
+
+    it("does not add the open-jacket instruction when outerwear is selected but no bottom is (no belt line to protect)", () => {
+      const prompt = buildVisualizationPrompt([jacket, shirt]).toLowerCase();
+      expect(prompt).not.toContain("worn open and unbuttoned");
+    });
   });
 
   describe("occasion / style-context direction", () => {
