@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 10;
+export const PROMPT_VERSION = 11;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -315,40 +315,6 @@ function buildBeltLines(garments: OutfitGarmentInput[]): string[] {
     "The composition must frame far enough down to clearly show the waistline and belt -- do not crop the shot at or above the waist.",
   ];
 
-  // Confirmed against five real generated outfits: whenever outerwear is
-  // also selected, the belt is correctly added but rendered UNDER a
-  // fully buttoned-closed jacket, which physically covers the entire
-  // waistline -- the belt is never visible in the output despite being
-  // technically present. (Every outfit with no outerwear in the sample
-  // showed the belt clearly; every outfit with outerwear did not.) The
-  // fix isn't a stronger belt instruction -- the belt is already being
-  // added -- it's telling the model to style the jacket so the belt it's
-  // already adding can actually be seen.
-  //
-  // An unbuttoned-jacket instruction alone was not enough: a follow-up
-  // real generation opened the jacket as instructed, but the jacket's own
-  // hem/front-panel width at hip height still covered the sides of the
-  // waistline, leaving only a narrow center gap in which no belt buckle
-  // happened to land -- still no visible belt. Naming the buckle's
-  // required position explicitly (centered in that gap, at the same
-  // height as the waistband, not lower) targets the actual remaining
-  // failure mode instead of restating "be visible" in different words.
-  // A second real generation with the two lines above correctly opened
-  // the jacket, but a different garment then hid the belt instead: the
-  // top/shirt worn underneath was rendered untucked, its hem hanging down
-  // over the waistband and covering exactly the center gap the buckle
-  // was supposed to occupy. Two separate layers can independently hide
-  // the same belt -- the jacket from the sides, an untucked shirt hem
-  // from the front -- so both must be constrained, not just one.
-  const hasOuterwear = garments.some((g) => normalize(g.category) === "outerwear");
-  if (hasOuterwear) {
-    lines.push(
-      "The outerwear must be worn open and unbuttoned at the front, not buttoned closed -- a closed jacket would hide the belt added above.",
-      "The belt buckle must be positioned at the center front of the waistline, in the gap between the open jacket's two front panels, at the same height as the waistband -- clearly visible, not lower than the waistband, and not covered by either side of the open jacket.",
-      "Any top or shirt worn underneath the open outerwear must be tucked into the pants/trousers -- its hem must not hang down over the waistband, since an untucked hem would cover the belt and buckle just as much as a closed jacket would."
-    );
-  }
-
   return lines;
 }
 
@@ -459,6 +425,46 @@ function buildCriticalGarmentFidelityLines(garments: OutfitGarmentInput[]): stri
   ];
 }
 
+// Leading, high-emphasis rule block for the outerwear+bottom case,
+// promoted here after the mid-prompt belt-visibility instructions in
+// buildBeltLines proved unreliable across multiple real generations even
+// after fixing three distinct, genuine causes one at a time (closed
+// jacket, then a buckle not landing in the open gap, then an untucked
+// shirt hem). Two further real generations with all three fixes present
+// together still showed no belt at all -- not misplaced, just absent --
+// suggesting the instruction was losing out to the strong,
+// reference-image-fidelity pressure elsewhere in the prompt rather than
+// being followed and then physically occluded. The exact same promotion
+// (regular instruction -> leading CRITICAL block) is what fixed the
+// composition/collage-leak issue earlier in this file when a mid-prompt
+// instruction alone wasn't enough; applying the same fix here rather than
+// inventing a new strategy.
+function buildCriticalBeltVisibilityLines(garments: OutfitGarmentInput[]): string[] {
+  const hasBottom = garments.some((g) => normalize(g.category) === "bottom");
+  const hasOuterwear = garments.some((g) => normalize(g.category) === "outerwear");
+  if (!hasBottom || !hasOuterwear) return [];
+
+  const beltColor = beltColorFor(garments);
+  const isFormal = garments.some((g) => FORMAL_STYLES.has(g.style));
+  const beltDescription = isFormal
+    ? `a slim ${beltColor} leather dress belt with a simple, understated buckle`
+    : `a ${beltColor} leather belt with a simple buckle`;
+
+  return [
+    "CRITICAL BELT VISIBILITY RULE -- THE BELT MUST BE PRESENT AND VISIBLE:",
+    "",
+    `This outfit includes both outerwear and pants/trousers. Add ${beltDescription} at the waistline, worn through the belt loops -- this is a REQUIRED garment for this outfit, exactly as required as the selected garments themselves, not an optional accessory that can be silently dropped in favor of fidelity to the reference photos.`,
+    "",
+    "To keep the belt visible, all of the following are required at once:",
+    "- The outerwear must be worn open and unbuttoned at the front. A buttoned-closed jacket hides the belt entirely and is not acceptable.",
+    "- Any top or shirt worn underneath must be tucked into the pants/trousers. An untucked hem hanging over the waistband hides the belt just as much as a closed jacket does, and is not acceptable.",
+    "- The belt buckle must be positioned at the center front of the waistline, in the visible gap between the open jacket's two front panels, at the same height as the waistband.",
+    "",
+    "Before finishing, verify the belt and its buckle are actually visible in the generated image at the waistline. If the jacket, an untucked shirt, or anything else is covering the belt, the image is wrong -- the belt must be seen, not merely present underneath other garments.",
+    "",
+  ];
+}
+
 export function buildVisualizationPrompt(
   garments: OutfitGarmentInput[],
   context?: { occasion?: Occasion; styleContext?: StyleContext }
@@ -474,6 +480,9 @@ export function buildVisualizationPrompt(
     // 0. Leading critical garment-fidelity rule (only when outerwear +
     // short-sleeve top are both selected -- see buildCriticalGarmentFidelityLines)
     ...buildCriticalGarmentFidelityLines(garments),
+    // 0b. Leading critical belt-visibility rule (only when outerwear +
+    // bottom are both selected -- see buildCriticalBeltVisibilityLines)
+    ...buildCriticalBeltVisibilityLines(garments),
     // 1. Task framing
     "Photorealistic professional male model wearing the exact clothing items shown in the provided reference images.",
     "",
