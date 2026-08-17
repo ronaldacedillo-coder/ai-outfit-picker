@@ -46,6 +46,24 @@ describe("GeminiAIProvider", () => {
     expect(result.formalityLevel).toBe(4);
   });
 
+  it("constructs the client with a bounded HTTP timeout (regression: an unbounded Gemini call left the catalog-upload UI stuck on 'Analyzing with AI...' forever with no way to recover)", async () => {
+    const { GoogleGenAI } = await import("@google/genai");
+    const { GeminiAIProvider, GEMINI_HTTP_TIMEOUT_MS } = await import("@/lib/providers/gemini");
+    new GeminiAIProvider("fake-key");
+    const lastCallArgs = (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0];
+    expect(lastCallArgs).toMatchObject({ apiKey: "fake-key", httpOptions: { timeout: GEMINI_HTTP_TIMEOUT_MS } });
+  });
+
+  it("fetches the reference image with a bounded abort signal (regression: same indefinite-hang risk applies to the image download, which happens before any Gemini call)", async () => {
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockClear();
+    const { GeminiAIProvider } = await import("@/lib/providers/gemini");
+    const provider = new GeminiAIProvider("fake-key");
+    await provider.analyzeClothingImage("https://example.com/photo.jpg");
+    const [, options] = fetchMock.mock.calls.at(-1)!;
+    expect((options as { signal?: AbortSignal }).signal).toBeInstanceOf(AbortSignal);
+  });
+
   it("throws when Gemini returns invalid JSON", async () => {
     const { GoogleGenAI } = await import("@google/genai");
     (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {

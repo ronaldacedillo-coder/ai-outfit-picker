@@ -16,6 +16,32 @@ import type { CategoryOption, SubcategoryOption } from "@/lib/wardrobe/matchCate
 
 type Status = "uploading" | "analyzing" | "review" | "saving" | "saved" | "error";
 
+// Provider-level timeouts (see GEMINI_HTTP_TIMEOUT_MS in gemini.ts) bound
+// each individual Gemini call, but a chain of up to 6 fallback keys x up to
+// 3 attempts each can still legitimately take a while. This is a last-resort
+// safety net, not the primary fix -- it exists so that any failure mode the
+// server-side timeouts don't cover (a genuine platform-level hang, a dropped
+// connection with no error event) still can't leave this card stuck on
+// "Analyzing with AI..." forever, matching the run()/handleReanalyze() catch
+// blocks' existing stated intent below.
+const ANALYSIS_TIMEOUT_MS = 90_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Analysis timed out.")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 export function UploadItemCard({
   file,
   categories,
@@ -72,7 +98,7 @@ export function UploadItemCard({
         setPath(uploadedPath);
 
         setStatus("analyzing");
-        const analysisResult = await analyzeClothingPhoto(uploadedPath);
+        const analysisResult = await withTimeout(analyzeClothingPhoto(uploadedPath), ANALYSIS_TIMEOUT_MS);
         setAnalysis("error" in analysisResult ? null : analysisResult.data.analysis);
         setStatus("review");
       } catch {
@@ -102,7 +128,7 @@ export function UploadItemCard({
     if (!path) return;
     setStatus("analyzing");
     try {
-      const analysisResult = await analyzeClothingPhoto(path);
+      const analysisResult = await withTimeout(analyzeClothingPhoto(path), ANALYSIS_TIMEOUT_MS);
       setAnalysis("error" in analysisResult ? null : analysisResult.data.analysis);
     } catch {
       // Same reasoning as run()'s catch above -- a thrown (not returned)
