@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import Link from "next/link";
 import { qualityTier, QUALITY_LABEL, QUALITY_BADGE, QUALITY_METER_FILL, meterTicksFilled } from "./matchQuality";
 import type { DisplayCandidate } from "./types";
 
@@ -43,13 +44,19 @@ export function RecommendationCard({
     >
       <div className="flex gap-2">
         {garments.map((g) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Link
             key={g.id}
-            src={g.imageSignedUrl}
-            alt={`${g.primaryColor} ${g.subcategory.replace(/_/g, " ")}`}
-            className="h-20 w-20 shrink-0 rounded-lg object-cover ring-1 ring-border"
-          />
+            href={`/dashboard/outfit-picker/${g.id}`}
+            title={`See other matches for this ${g.primaryColor} ${g.subcategory.replace(/_/g, " ")}`}
+            className="shrink-0 overflow-hidden rounded-lg ring-1 ring-border transition-opacity duration-150 ease-out hover:opacity-80"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={g.imageSignedUrl}
+              alt={`${g.primaryColor} ${g.subcategory.replace(/_/g, " ")}`}
+              className="h-20 w-20 object-cover"
+            />
+          </Link>
         ))}
       </div>
 
