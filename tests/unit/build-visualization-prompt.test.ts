@@ -301,6 +301,69 @@ describe("buildVisualizationPrompt", () => {
     });
   });
 
+  describe("short-sleeve-under-outerwear layering consistency", () => {
+    const grayBlazer: OutfitGarmentInput = {
+      imageUrl: "https://example.com/blazer.jpg",
+      role: "outerwear",
+      category: "outerwear",
+      subcategory: "blazer",
+      primaryColor: "grey",
+      pattern: "solid",
+      style: "business_casual",
+    };
+    const shortSleeveShirt: OutfitGarmentInput = {
+      imageUrl: "https://example.com/shirt.jpg",
+      role: "top",
+      category: "top",
+      subcategory: "short_sleeve_shirt",
+      primaryColor: "navy blue",
+      pattern: "solid",
+      style: "casual",
+    };
+    const longSleeveShirt: OutfitGarmentInput = {
+      imageUrl: "https://example.com/dress-shirt.jpg",
+      role: "top",
+      category: "top",
+      subcategory: "dress_shirt",
+      primaryColor: "white",
+      pattern: "solid",
+      style: "business_formal",
+      visualDetails: { sleeve: "long sleeve" },
+    };
+
+    it("forbids visible shirt fabric at the jacket cuff when the top underneath is short-sleeved (regression: a short-sleeve shirt worn under a blazer still showed fabric at the blazer's cuff, twice -- first fix wasn't forceful enough to override FLUX's learned convention)", () => {
+      const prompt = buildVisualizationPrompt([grayBlazer, shortSleeveShirt]).toLowerCase();
+      expect(prompt).toContain("garment 2 (the short sleeve shirt) has short sleeves ending above the elbow");
+      expect(prompt).toContain("physically too short to reach the jacket's cuff");
+      expect(prompt).toContain("the jacket sleeve must end directly at bare skin");
+      expect(prompt).toContain("zero visible fabric from garment 2");
+      // Reinforced a second time among the negative constraints, mirroring
+      // the redundancy already used for other high-error-rate constraints.
+      expect(prompt).toContain("do not add a shirt cuff or any fabric at the sleeve opening of the outerwear");
+      expect(prompt).toContain("garment 2's sleeves are too short to reach there");
+    });
+
+    it("does not fire when the top underneath is already long-sleeved", () => {
+      const prompt = buildVisualizationPrompt([grayBlazer, longSleeveShirt]).toLowerCase();
+      expect(prompt).not.toContain("ending above the elbow");
+    });
+
+    it("does not fire when no outerwear is selected at all", () => {
+      const prompt = buildVisualizationPrompt([shortSleeveShirt]).toLowerCase();
+      expect(prompt).not.toContain("ending above the elbow");
+    });
+
+    it("detects a short sleeve via the AI-captured visualDetail even when the subcategory text doesn't say 'short'", () => {
+      const shirtWithShortSleeveDetail: OutfitGarmentInput = {
+        ...longSleeveShirt,
+        subcategory: "button-up shirt",
+        visualDetails: { sleeve: "short sleeve" },
+      };
+      const prompt = buildVisualizationPrompt([grayBlazer, shirtWithShortSleeveDetail]).toLowerCase();
+      expect(prompt).toContain("ending above the elbow");
+    });
+  });
+
   describe("color, pattern, and silhouette fidelity", () => {
     it("adds an exact hex-anchored color line when primaryColorHex is provided", () => {
       const withHex: OutfitGarmentInput = { ...shirt, primaryColorHex: "#1B2A4A" };

@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 4;
+export const PROMPT_VERSION = 5;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -176,6 +176,51 @@ function buildOuterwearSleeveLockLines(garments: OutfitGarmentInput[]): string[]
   return lines;
 }
 
+function isShortSleeve(garment: OutfitGarmentInput): boolean {
+  const sleeve = garment.visualDetails?.sleeve?.toLowerCase() ?? "";
+  return sleeve.includes("short") || normalize(garment.subcategory).includes("shortsleeve");
+}
+
+// Section 2c: short-sleeve-under-outerwear layering consistency -- a
+// genuinely short sleeve ends above the elbow, nowhere near a jacket's
+// cuff opening at the wrist. Without an explicit instruction, FLUX
+// defaults to the common "dress shirt cuff peeking out of a blazer
+// sleeve" styling convention regardless of whether the actual top
+// underneath has a sleeve anywhere near that long -- confirmed in
+// production: a short-sleeve shirt worn under a blazer still showed
+// shirt fabric at the blazer's cuff, which isn't physically possible
+// for a sleeve that short. Only fires when outerwear is actually
+// selected, since a short-sleeve top with nothing over it has nothing
+// to be layering-inconsistent with.
+function buildLayeringConsistencyLines(garments: OutfitGarmentInput[]): string[] {
+  if (!garments.some((g) => normalize(g.category) === "outerwear")) return [];
+  const lines: string[] = [];
+  garments.forEach((garment, index) => {
+    if (normalize(garment.category) !== "top" || !isShortSleeve(garment)) return;
+    lines.push(
+      `Garment ${index + 1} (the ${humanize(garment.subcategory)}) has short sleeves ending above the elbow -- it has no fabric of any kind near the wrist or forearm. Rendering a shirt cuff peeking out of a jacket sleeve is a common studio-photography default for LONG-sleeve shirts, but it does not apply here: this garment's sleeves are physically too short to reach the jacket's cuff. Do not render any cuff, fabric edge, hem, trim, button, or color from garment ${index + 1} at the outerwear's sleeve opening. The jacket sleeve must end directly at bare skin -- the visible wrist and forearm there must be plain skin, continuous with the model's actual skin tone, with zero visible fabric from garment ${index + 1}.`
+    );
+  });
+  return lines;
+}
+
+// Short reinforcement of buildLayeringConsistencyLines, placed among the
+// negative constraints near the end of the prompt -- mirrors the
+// existing pattern of restating a high-error-rate constraint in more
+// than one place (identity lock + category-substitution; the
+// composition lock appears twice for the same reason).
+function buildLayeringConsistencyNegativeLines(garments: OutfitGarmentInput[]): string[] {
+  if (!garments.some((g) => normalize(g.category) === "outerwear")) return [];
+  const lines: string[] = [];
+  garments.forEach((garment, index) => {
+    if (normalize(garment.category) !== "top" || !isShortSleeve(garment)) return;
+    lines.push(
+      `Do not add a shirt cuff or any fabric at the sleeve opening of the outerwear -- garment ${index + 1}'s sleeves are too short to reach there. Show bare wrist and forearm instead.`
+    );
+  });
+  return lines;
+}
+
 // Section 4: color fidelity -- the hex-anchored line supplements (never
 // replaces) the always-present generic "do not change the garment
 // colors" instruction below, since hex data isn't guaranteed to exist for
@@ -285,6 +330,8 @@ export function buildVisualizationPrompt(
     ...buildIdentityLockLines(garments),
     // 2b. Outerwear sleeve-length lock
     ...buildOuterwearSleeveLockLines(garments),
+    // 2c. Short-sleeve-under-outerwear layering consistency
+    ...buildLayeringConsistencyLines(garments),
     // 3. Closure / collar / construction details
     ...buildConstructionDetailLines(garments),
     // 4. Color fidelity
@@ -317,6 +364,8 @@ export function buildVisualizationPrompt(
     ...buildNegativeConstraints(garments),
     "Do not change the garment colors.",
     "Do not invent logos or patterns.",
+    // 11b. Layering-consistency reinforcement
+    ...buildLayeringConsistencyNegativeLines(garments),
     // 12. Category-substitution negative constraints
     ...buildCategorySubstitutionLines(garments),
   ].join("\n");
