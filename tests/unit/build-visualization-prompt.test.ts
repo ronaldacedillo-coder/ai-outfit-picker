@@ -551,23 +551,31 @@ describe("buildVisualizationPrompt", () => {
       expect(prompt).not.toContain("dress belt");
     });
 
-    it("instructs the jacket to be open, the buckle centered, and the shirt tucked in when outerwear and a bottom are both selected (regression: real generations showed a closed jacket hides the belt, then -- after fixing that -- an untucked shirt hem independently hid it too)", () => {
-      const prompt = buildVisualizationPrompt([jacket, shirt, pants]).toLowerCase();
-      expect(prompt).toContain("worn open and unbuttoned at the front");
-      expect(prompt).toContain("a closed jacket would hide the belt added above");
-      expect(prompt).toContain("belt buckle must be positioned at the center front of the waistline");
-      expect(prompt).toContain("gap between the open jacket's two front panels");
-      expect(prompt).toContain("must be tucked into the pants/trousers");
+  });
+
+  describe("critical belt-visibility rule (outerwear + bottom)", () => {
+    it("leads the prompt with a critical belt-visibility block when outerwear and a bottom are both selected (regression: three real generations each fixed one genuine occlusion cause -- closed jacket, then a buckle not landing in the open gap, then an untucked shirt hem -- but with all three fixed the belt still didn't appear at all in two further real generations; promoting the instruction to a leading critical block is the same fix that resolved the earlier composition/collage-leak issue)", () => {
+      const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+      expect(prompt.indexOf("CRITICAL BELT VISIBILITY RULE")).toBeGreaterThan(0);
+      expect(prompt.indexOf("CRITICAL BELT VISIBILITY RULE")).toBeLessThan(
+        prompt.indexOf("Photorealistic professional male model")
+      );
+      const lower = prompt.toLowerCase();
+      expect(lower).toContain("this is a required garment for this outfit");
+      expect(lower).toContain("outerwear must be worn open and unbuttoned at the front");
+      expect(lower).toContain("must be tucked into the pants/trousers");
+      expect(lower).toContain("belt buckle must be positioned at the center front of the waistline");
+      expect(lower).toContain("verify the belt and its buckle are actually visible");
     });
 
-    it("does not add the open-jacket instruction when no outerwear is selected", () => {
-      const prompt = buildVisualizationPrompt([shirt, pants]).toLowerCase();
-      expect(prompt).not.toContain("worn open and unbuttoned");
+    it("does not add the critical belt-visibility block when no outerwear is selected", () => {
+      const prompt = buildVisualizationPrompt([shirt, pants]);
+      expect(prompt).not.toContain("CRITICAL BELT VISIBILITY RULE");
     });
 
-    it("does not add the open-jacket instruction when outerwear is selected but no bottom is (no belt line to protect)", () => {
-      const prompt = buildVisualizationPrompt([jacket, shirt]).toLowerCase();
-      expect(prompt).not.toContain("worn open and unbuttoned");
+    it("does not add the critical belt-visibility block when outerwear is selected but no bottom is (no belt to protect)", () => {
+      const prompt = buildVisualizationPrompt([jacket, shirt]);
+      expect(prompt).not.toContain("CRITICAL BELT VISIBILITY RULE");
     });
   });
 
