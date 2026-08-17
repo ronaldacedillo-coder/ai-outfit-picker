@@ -60,7 +60,7 @@ export function LandingHero() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-1 flex-col justify-center gap-16 px-6 py-24 lg:flex-row lg:items-center lg:gap-12 lg:px-10">
       <motion.div
-        className="flex max-w-xl flex-col gap-7"
+        className="flex max-w-xl flex-col items-start gap-7"
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", bounce: 0, duration: 0.5 }}
