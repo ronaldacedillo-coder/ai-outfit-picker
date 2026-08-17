@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 8;
+export const PROMPT_VERSION = 9;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -37,17 +37,13 @@ const GARMENT_SLOTS: { role: string; label: string }[] = [
 // drops out of the "do not add" list automatically once a matching
 // garment is actually selected (see isSelected below), so extending it
 // never risks prohibiting something the user did select.
-const KNOWN_NON_CORE_ITEMS = [
-  "tie",
-  "pocket square",
-  "belt",
-  "vest",
-  "sweater",
-  "scarf",
-  "watch",
-  "bag",
-  "hat",
-];
+//
+// "belt" deliberately does NOT appear here -- unlike these other
+// accessories, a belt is standard, expected menswear whenever pants/
+// trousers are worn, and its absence read as an unstyled gap rather than
+// a fidelity error. See buildBeltLines below for the positive instruction
+// that replaces this negative one.
+const KNOWN_NON_CORE_ITEMS = ["tie", "pocket square", "vest", "sweater", "scarf", "watch", "bag", "hat"];
 
 // Named category-confusion failure modes observed in generation testing:
 // FLUX would sometimes reinterpret a selected garment as a visually
@@ -279,6 +275,47 @@ function buildSilhouetteLines(garments: OutfitGarmentInput[]): string[] {
   return lines;
 }
 
+// Section 6b: belt styling -- a belt is standard menswear whenever
+// pants/trousers are worn, and its color/formality should read as
+// deliberately coordinated with the rest of the outfit rather than
+// left to the model's own defaults. Only added when a bottom garment is
+// actually selected -- a belt with no visible waistband to sit on
+// doesn't make sense. Colors follow the classic dress-menswear rule
+// (black leather for cool/neutral tones, brown leather for warm tones);
+// formality follows the most formal garment.style present, since a
+// business-formal outfit calls for a slim dress belt while a casual one
+// calls for a more relaxed one.
+const WARM_BELT_COLOR_TOKENS = ["brown", "tan", "khaki", "beige", "olive", "camel", "rust", "cognac"];
+const FORMAL_STYLES = new Set(["business_formal", "business_casual"]);
+
+function beltColorFor(garments: OutfitGarmentInput[]): "brown" | "black" {
+  const bottom = garments.find((g) => normalize(g.category) === "bottom");
+  const reference = bottom ?? garments.find((g) => normalize(g.category) === "outerwear") ?? garments[0];
+  const color = (reference?.primaryColor ?? "").toLowerCase();
+  return WARM_BELT_COLOR_TOKENS.some((token) => color.includes(token)) ? "brown" : "black";
+}
+
+function buildBeltLines(garments: OutfitGarmentInput[]): string[] {
+  const hasBottom = garments.some((g) => normalize(g.category) === "bottom");
+  if (!hasBottom) return [];
+
+  const beltColor = beltColorFor(garments);
+  const isFormal = garments.some((g) => FORMAL_STYLES.has(g.style));
+  const beltDescription = isFormal
+    ? `a slim ${beltColor} leather dress belt with a simple, understated buckle`
+    : `a ${beltColor} leather belt with a simple buckle`;
+
+  return [
+    `Add ${beltDescription} at the waistline, worn through the belt loops of the pants/trousers, coordinated with the outfit's overall color palette and formality.`,
+    "The belt should read as a natural, appropriate finishing accessory -- not a focal point -- and must not clash with or distract from the primary selected garments.",
+    // Confirmed via a real generation: without this explicit framing
+    // requirement, the model sometimes crops the shot at the hip/waist,
+    // which hides the belt entirely even when the belt instruction above
+    // is otherwise followed correctly.
+    "The composition must frame far enough down to clearly show the waistline and belt -- do not crop the shot at or above the waist.",
+  ];
+}
+
 // Section 8: occasion/style-context direction -- deliberately scoped to
 // pose and setting only. The trailing guard sentence exists because,
 // without it, a model can misinterpret an occasion label (e.g. "Office")
@@ -434,6 +471,8 @@ export function buildVisualizationPrompt(
     ...buildPatternFidelityLines(garments),
     // 6. Silhouette / fit
     ...buildSilhouetteLines(garments),
+    // 6b. Belt styling
+    ...buildBeltLines(garments),
     "",
     // 7. General non-negotiables
     "Preserve the visual identity, color, pattern, construction, proportions, and key details of the reference garments.",
@@ -443,7 +482,11 @@ export function buildVisualizationPrompt(
     "",
     // 9. Composition / photography direction
     "Professional fashion photography.",
-    "Full-body or three-quarter body composition.",
+    // Confirmed via real generations: "full-body or three-quarter body"
+    // alone was still interpreted as a tight chest-up/waist-up crop,
+    // which cuts off the waistline before the belt (see buildBeltLines)
+    // is ever visible. Spelled out with an explicit minimum extent.
+    "Full-body or three-quarter body composition, framed from the head down to at least mid-thigh so the waistline is always clearly visible. Never crop the shot at or above the waist.",
     "Natural realistic human proportions.",
     "Clean neutral studio background.",
     "Soft professional lighting.",
