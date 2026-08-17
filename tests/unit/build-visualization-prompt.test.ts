@@ -73,6 +73,20 @@ describe("buildVisualizationPrompt", () => {
     expect(prompt).toContain("no collage, no visible reference images, no other panels or frames");
   });
 
+  describe("critical composition-lock rule (regression: a real generation showed the model plus a separate inset photo of a person and a separate floating garment cutout in the same output image, despite the existing single-photograph instructions above)", () => {
+    it("leads every prompt with the critical composition rule, regardless of which garments are selected", () => {
+      const withOuterwear = buildVisualizationPrompt([jacket, shirt, pants]);
+      const singleGarment = buildVisualizationPrompt([shirt]);
+      for (const prompt of [withOuterwear, singleGarment]) {
+        expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
+        expect(prompt).toContain("exactly one single photograph containing exactly one person");
+        expect(prompt.toLowerCase()).toContain("do not include any additional inset photo, thumbnail, insert, corner panel");
+        expect(prompt.toLowerCase()).toContain("do not include any floating, cut-out, or isolated product photo of a garment");
+        expect(prompt.toLowerCase()).toContain("collage, grid, moodboard, split-screen, side-by-side comparison");
+      }
+    });
+  });
+
   describe("dynamic negative constraints", () => {
     it("excludes known accessories not present in any selected garment", () => {
       const prompt = buildVisualizationPrompt([jacket, shirt, pants]).toLowerCase();
@@ -401,8 +415,13 @@ describe("buildVisualizationPrompt", () => {
       expect(prompt).toContain(
         "PRIORITY RULE: Garment fidelity is more important than fashion interpretation, visual creativity, or aesthetic improvement."
       );
-      // Must be the very first content in the prompt, not buried later.
-      expect(prompt.indexOf("CRITICAL OUTFIT GENERATION RULE")).toBe(0);
+      // The always-present composition-lock block leads the prompt; this
+      // block must come right after it, still ahead of general task framing.
+      expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
+      expect(prompt.indexOf("CRITICAL OUTFIT GENERATION RULE")).toBeGreaterThan(0);
+      expect(prompt.indexOf("CRITICAL OUTFIT GENERATION RULE")).toBeLessThan(
+        prompt.indexOf("Photorealistic professional male model")
+      );
     });
 
     it("does not add the block when the top underneath is long-sleeved", () => {

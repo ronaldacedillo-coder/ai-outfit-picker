@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 7;
+export const PROMPT_VERSION = 8;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -311,6 +311,33 @@ function buildCategorySubstitutionLines(garments: OutfitGarmentInput[]): string[
   return lines;
 }
 
+// Leading, unconditional composition-lock rule -- placed first in the
+// prompt (even before the critical garment-fidelity block) because a
+// real generation showed the multi-image Kontext model compositing the
+// output as a moodboard: the main model photo in the center plus a
+// separate small inset photo of a person wearing just one reference
+// garment, plus a separate floating cutout of another reference garment
+// with no person at all, in the same output image. The existing
+// mid-prompt "single photograph" instructions (see the output-composition
+// lock in buildVisualizationPrompt and section 9 below) did not fully
+// suppress this -- unlike the sleeve-fidelity failure mode, this isn't
+// scoped to any particular garment combination, so unlike
+// buildCriticalGarmentFidelityLines below, this rule always applies.
+function buildCriticalCompositionLines(): string[] {
+  return [
+    "CRITICAL COMPOSITION RULE -- ONE PHOTO, ONE PERSON, NOTHING ELSE:",
+    "",
+    "The output must be exactly one single photograph containing exactly one person: the model wearing the complete outfit. Nothing else may appear anywhere in the frame.",
+    "",
+    "Do not include any additional inset photo, thumbnail, insert, corner panel, or secondary image of a person -- not the model, not anyone else, not wearing part of the outfit, not wearing anything else.",
+    "Do not include any floating, cut-out, or isolated product photo of a garment by itself -- every garment must be shown only as worn by the one model in the single main photograph, never as a separate still-life or flat-lay element anywhere in the frame.",
+    "Do not create a collage, grid, moodboard, split-screen, side-by-side comparison, or any layout with more than one photograph, panel, or frame.",
+    "The reference garment images provided are for fidelity only -- study them to reproduce the garments accurately, but never reproduce the reference photos themselves, or any crop, thumbnail, cutout, or copy of them, as visible content in the output.",
+    "Before finishing, verify the output contains only the single full photograph of the one model -- remove any other visual element that is not part of that one photograph.",
+    "",
+  ];
+}
+
 // Leading, high-emphasis rule block -- placed first in the prompt (before
 // task framing) so it governs everything that follows, at the user's
 // explicit request after the narrower, later-positioned sleeve-length
@@ -368,6 +395,9 @@ export function buildVisualizationPrompt(
     .join("\n");
 
   return [
+    // -1. Leading critical composition-lock rule (unconditional, every
+    // generation -- see buildCriticalCompositionLines)
+    ...buildCriticalCompositionLines(),
     // 0. Leading critical garment-fidelity rule (only when outerwear +
     // short-sleeve top are both selected -- see buildCriticalGarmentFidelityLines)
     ...buildCriticalGarmentFidelityLines(garments),
@@ -421,6 +451,7 @@ export function buildVisualizationPrompt(
     "Sharp clothing details.",
     "Natural posture.",
     "Single unified photograph -- no collage, no visible reference images, no other panels or frames.",
+    "No inset photos, no thumbnails, no floating garment cutouts anywhere in the frame -- only the one model in the one photograph.",
     "",
     "The clothing is the primary visual focus.",
     "Generate only the selected garments listed above. Do not add any clothing or accessories that are not explicitly selected.",
