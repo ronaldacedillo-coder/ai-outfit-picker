@@ -61,6 +61,13 @@ export class FalFluxImageGenProvider implements ImageGenProvider {
     // breakdown. The open/closed-jacket problem is being addressed purely
     // through prompt wording now, not this lever.
     const GUIDANCE_SCALE = 6.5;
+    // No negative_prompt field here by design, not by oversight -- checked
+    // fal.ai's own API reference for both fal-ai/flux-pro/kontext and
+    // fal-ai/flux-pro/kontext/max/multi (the two endpoints below) and
+    // neither accepts a separate negative-prompt parameter. The
+    // "never render" constraints that would otherwise go there are folded
+    // into buildVisualizationPrompt.ts's own prompt text instead (see
+    // section 22 of MASTER_PROMPT there).
     const requestInput =
       input.garments.length >= 2
         ? {

@@ -5,13 +5,15 @@ import type { OutfitGarmentInput } from "@/lib/providers/types";
 // This file previously exercised a large amount of per-garment dynamic
 // prompt construction (identity locks, sleeve-length locks, color/pattern
 // fidelity, several iteratively-added "CRITICAL" rule blocks). At the
-// user's explicit request, buildVisualizationPrompt.ts was reset to
-// return a single static master prompt (supplied directly by the ARROW
-// Philippines brand/styling team) unconditionally, regardless of which
-// garments are selected. This test suite is intentionally much smaller
-// now -- it just confirms the function is a stable, input-independent
-// pass-through of that master prompt, plus a couple of sanity checks on
-// its content and on PROMPT_VERSION.
+// user's explicit request, buildVisualizationPrompt.ts returns a single
+// static master prompt unconditionally, regardless of which garments are
+// selected -- since consolidated (v21) from two overlapping brand/styling
+// documents, with a stronger emphasis on closure-mechanism preservation
+// (zipper stays a zipper, buttons stay buttons) after that exact
+// regression showed up in review. This test suite is intentionally much
+// smaller than the old dynamic one -- it confirms the function is a
+// stable, input-independent pass-through of the master prompt, plus
+// sanity checks on its content and on PROMPT_VERSION.
 
 const jacket: OutfitGarmentInput = {
   imageUrl: "https://example.com/jacket.jpg",
@@ -62,41 +64,65 @@ describe("buildVisualizationPrompt", () => {
   it("is the ARROW Philippines master prompt, covering every numbered section", () => {
     const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
     expect(prompt).toContain("MASTER FAL.AI OUTFIT VISUALIZATION PROMPT");
-    expect(prompt).toContain("ARROW PHILIPPINES — MEN'S PREMIUM FASHION");
-    expect(prompt).toContain("1. EXACT GARMENT PRESERVATION");
-    expect(prompt).toContain("2. COMPLETE OUTFIT VISIBILITY — CRITICAL");
-    expect(prompt).toContain("3. FULL-BODY / THREE-QUARTER COMPOSITION");
-    expect(prompt).toContain("4. GARMENT LAYERING");
-    expect(prompt).toContain("5. SLEEVE ACCURACY");
-    expect(prompt).toContain("6. TROUSER / PANTS ACCURACY");
-    expect(prompt).toContain("7. PRODUCT VISIBILITY OVER CINEMATIC COMPOSITION");
-    expect(prompt).toContain("8. NO UNNECESSARY ACCESSORIES");
-    expect(prompt).toContain("9. MODEL POSE");
-    expect(prompt).toContain("10. CAMERA");
-    expect(prompt).toContain("11. LIGHTING");
-    expect(prompt).toContain("12. BACKGROUND");
-    expect(prompt).toContain("13. MODEL APPEARANCE");
-    expect(prompt).toContain("14. PHYSICAL REALISM");
-    expect(prompt).toContain("15. PRODUCT IDENTITY HAS PRIORITY");
-    expect(prompt).toContain('16. DO NOT "COMPLETE" THE OUTFIT');
-    expect(prompt).toContain("17. DO NOT CHANGE THE OUTFIT");
-    expect(prompt).toContain("18. FINAL QUALITY CHECK");
-    expect(prompt).toContain("FINAL OBJECTIVE:");
+    expect(prompt).toContain("ARROW PHILIPPINES — MEN'S FASHION");
+    expect(prompt).toContain("1. THE OUTFIT MUST BE WORN BY AN ADULT MALE MODEL");
+    expect(prompt).toContain("2. THE CLOTHING IS STILL THE HERO");
+    expect(prompt).toContain("3. FULL OUTFIT MUST BE VISIBLE");
+    expect(prompt).toContain("4. EXACT GARMENT PRESERVATION — ABSOLUTE RULE");
+    expect(prompt).toContain("5. CRITICAL ZIPPER / CLOSURE PRESERVATION RULE");
+    expect(prompt).toContain("6. GENERAL CLOSURE PRESERVATION");
+    expect(prompt).toContain("7. CRITICAL GARMENT IDENTITY RULE");
+    expect(prompt).toContain("8. JACKET / BLAZER DISTINCTION");
+    expect(prompt).toContain("9. SHIRT / POLO / JACKET SLEEVE RULE");
+    expect(prompt).toContain("10. PANTS / TROUSER PRESERVATION");
+    expect(prompt).toContain("11. PRODUCT IMAGE IS THE SOURCE OF TRUTH");
+    expect(prompt).toContain("12. LAYERING");
+    expect(prompt).toContain("13. ALL SELECTED ITEMS MUST BE PRESENT");
+    expect(prompt).toContain("14. MODEL POSE");
+    expect(prompt).toContain("15. CAMERA");
+    expect(prompt).toContain("16. LIGHTING");
+    expect(prompt).toContain("17. BACKGROUND");
+    expect(prompt).toContain("18. NO UNSELECTED GARMENTS");
+    expect(prompt).toContain("19. NO GENERIC FASHION REINTERPRETATION");
+    expect(prompt).toContain("20. PRIORITY ORDER");
+    expect(prompt).toContain("21. FINAL INTERNAL VALIDATION");
+    expect(prompt).toContain("22. NEVER RENDER");
+    expect(prompt).toContain("FINAL OBJECTIVE");
   });
 
-  it("requires an adult male model (this is a men's-only brand)", () => {
+  it("requires an adult male model, explicitly ruling out female/child/ambiguous models (this is a men's-only brand)", () => {
     const prompt = buildVisualizationPrompt([shirt]);
-    expect(prompt.toLowerCase()).toContain("use an adult male model");
+    expect(prompt).toContain("ADULT MALE MODEL");
+    expect(prompt.toLowerCase()).toContain("female models");
+    expect(prompt.toLowerCase()).toContain("children");
+    expect(prompt.toLowerCase()).toContain("gender-ambiguous models");
+  });
+
+  it("requires the jacket's closure mechanism (zipper vs. buttons) to be preserved exactly -- the regression this consolidation was written to fix", () => {
+    const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+    expect(prompt).toContain("IT MUST REMAIN A ZIPPER.");
+    expect(prompt.toLowerCase()).toContain("do not confuse");
+    expect(prompt).toContain("ZIP-UP JACKET");
+    expect(prompt.toLowerCase()).toContain("must not acquire");
+    expect(prompt.toLowerCase()).toContain("suit-style lapels");
   });
 
   it("requires the jacket to remain the correct sleeve length independent of other garments", () => {
     const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
-    expect(prompt.toLowerCase()).toContain("never transfer sleeve characteristics from one garment to another");
+    expect(prompt.toLowerCase()).toContain("preserve the actual sleeve length of every garment independently");
   });
 
-  it("prioritizes garment fidelity and product visibility above aesthetic styling", () => {
+  it("prioritizes exact garment identity above artistic/editorial aesthetics", () => {
     const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
-    expect(prompt).toContain("GARMENT FIDELITY AND PRODUCT VISIBILITY ALWAYS WIN.");
+    expect(prompt).toContain("GARMENT ACCURACY WINS.");
+    expect(prompt).toContain("Exact selected garment identity.");
+  });
+
+  it("folds the never-render list into the prompt text, since the FLUX Kontext API has no separate negative_prompt field", () => {
+    const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+    expect(prompt.toLowerCase()).toContain("this api has no separate negative-prompt field");
+    expect(prompt.toLowerCase()).toContain("button jacket instead of zipper jacket");
+    expect(prompt.toLowerCase()).toContain("female model");
   });
 
   describe("PROMPT_VERSION", () => {
