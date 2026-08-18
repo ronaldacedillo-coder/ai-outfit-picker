@@ -105,6 +105,25 @@ describe("buildVisualizationPrompt", () => {
     });
   });
 
+  describe("critical natural-pose rule (regression: a real generation posed the model gripping and pulling open the jacket's lapels with his hands instead of standing naturally with it just hanging open)", () => {
+    it("leads the prompt with the critical natural-pose rule when outerwear is selected", () => {
+      const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+      expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
+      expect(prompt.indexOf("CRITICAL POSE RULE -- THE MODEL MUST STAND NATURALLY, NOT HOLDING THE JACKET:")).toBeGreaterThan(0);
+      expect(prompt.indexOf("CRITICAL POSE RULE")).toBeLessThan(prompt.indexOf("Photorealistic professional male model"));
+      const lower = prompt.toLowerCase();
+      expect(lower).toContain("arms and hands relaxed at his sides");
+      expect(lower).toContain("passive, static state of the garment");
+      expect(lower).toContain("do not pose the model gripping, holding, pulling open, spreading apart, hooking his thumbs into");
+      expect(lower).toContain("verify the model's hands are not touching, gripping, or holding any part of the jacket");
+    });
+
+    it("does not add the block when no outerwear is selected", () => {
+      const prompt = buildVisualizationPrompt([shirt, pants]);
+      expect(prompt).not.toContain("CRITICAL POSE RULE");
+    });
+  });
+
   describe("dynamic negative constraints", () => {
     it("excludes known accessories not present in any selected garment", () => {
       const prompt = buildVisualizationPrompt([jacket, shirt, pants]).toLowerCase();

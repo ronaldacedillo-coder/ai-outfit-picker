@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 14;
+export const PROMPT_VERSION = 15;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -402,6 +402,40 @@ function buildCriticalPersonFramingLines(): string[] {
   ];
 }
 
+// Leading, unconditional pose rule -- a real generation kept posing the
+// model actively gripping both jacket lapels with his hands and pulling
+// them open (thumbs hooked into the front panels), rather than just
+// wearing the jacket open normally. This exact instruction already
+// existed as a paragraph embedded inside buildCriticalLayeringVisibilityLines
+// below, but a follow-up real generation showed the pose recurring even
+// with that paragraph in place -- an instruction buried as one paragraph
+// among several inside a block titled after a different concern (shirt
+// visibility) evidently isn't carrying enough weight on its own. Promoted
+// to its own dedicated leading block with its own heading, exactly the
+// same escalation this file has used before (see the belt-visibility
+// promotion above) when embedding an instruction inside a broader block
+// wasn't sufficient. Scoped to outerwear alone (not outerwear+top) since
+// the failure is about how the jacket itself is worn/posed, independent
+// of what's underneath it, and per outfitComposer.ts outerwear is never
+// actually selected without a top anyway.
+function buildCriticalNaturalPoseLines(garments: OutfitGarmentInput[]): string[] {
+  const hasOuterwear = garments.some((g) => normalize(g.category) === "outerwear");
+  if (!hasOuterwear) return [];
+
+  return [
+    "CRITICAL POSE RULE -- THE MODEL MUST STAND NATURALLY, NOT HOLDING THE JACKET:",
+    "",
+    "The model must stand in a normal, relaxed, natural standing pose, facing the camera, with his arms and hands relaxed at his sides (or in a similarly natural resting position such as loosely in his pockets).",
+    "",
+    "The outerwear being open at the front is a passive, static state of the garment -- it hangs open on its own because it is unzipped or unbuttoned, exactly as it would if a person simply left it that way and did nothing else. It is NOT a pose or an action the model is performing.",
+    "",
+    "Do not pose the model gripping, holding, pulling open, spreading apart, hooking his thumbs into, or otherwise touching or interacting with the jacket, its lapels, its front panels, or its zipper with his hands. His hands and arms must have no contact with the jacket at all -- they belong at his sides or in a natural resting position, not raised toward his chest or collar.",
+    "",
+    "Before finishing, verify the model's hands are not touching, gripping, or holding any part of the jacket in the generated image. If his hands are on the jacket in any way, the image is wrong -- regenerate the pose so his arms rest naturally at his sides instead.",
+    "",
+  ];
+}
+
 // Leading, high-emphasis rule block -- placed first in the prompt (before
 // task framing) so it governs everything that follows, at the user's
 // explicit request after the narrower, later-positioned sleeve-length
@@ -562,6 +596,9 @@ export function buildVisualizationPrompt(
     // -0.5. Leading critical person-framing rule (unconditional, every
     // generation -- see buildCriticalPersonFramingLines)
     ...buildCriticalPersonFramingLines(),
+    // -0.25. Leading critical natural-pose rule (only when outerwear is
+    // selected -- see buildCriticalNaturalPoseLines)
+    ...buildCriticalNaturalPoseLines(garments),
     // 0. Leading critical garment-fidelity rule (only when outerwear +
     // short-sleeve top are both selected -- see buildCriticalGarmentFidelityLines)
     ...buildCriticalGarmentFidelityLines(garments),
