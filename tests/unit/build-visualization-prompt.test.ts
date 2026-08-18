@@ -10,10 +10,17 @@ import type { OutfitGarmentInput } from "@/lib/providers/types";
 // selected -- since consolidated (v21) from two overlapping brand/styling
 // documents, with a stronger emphasis on closure-mechanism preservation
 // (zipper stays a zipper, buttons stay buttons) after that exact
-// regression showed up in review. This test suite is intentionally much
-// smaller than the old dynamic one -- it confirms the function is a
-// stable, input-independent pass-through of the master prompt, plus
-// sanity checks on its content and on PROMPT_VERSION.
+// regression showed up in review, then further merged (v22) with a third,
+// infographic-style source that added explicit American/25-40 model
+// styling, a hard shirt/polo-visibility requirement, and a handful of
+// pose/background/negative-list additions -- reconciled against the v21
+// closure rule rather than left silently contradicting it (see section 3
+// and the PROMPT_VERSION comment in buildVisualizationPrompt.ts for the
+// resolution: an outer layer's own reference closure state always wins).
+// This test suite is intentionally much smaller than the old dynamic one
+// -- it confirms the function is a stable, input-independent pass-through
+// of the master prompt, plus sanity checks on its content and on
+// PROMPT_VERSION.
 
 const jacket: OutfitGarmentInput = {
   imageUrl: "https://example.com/jacket.jpg",
@@ -98,6 +105,33 @@ describe("buildVisualizationPrompt", () => {
     expect(prompt.toLowerCase()).toContain("gender-ambiguous models");
   });
 
+  it("styles the model as classic American with an explicit 25-40 age range (v22 merge)", () => {
+    const prompt = buildVisualizationPrompt([shirt]);
+    expect(prompt.toLowerCase()).toContain("classic american look");
+    expect(prompt).toContain("25-40");
+  });
+
+  it("requires a shirt/polo worn with no outerwear to be fully visible, while an outer layer's own reference closure state still wins when outerwear is selected (v22 reconciliation)", () => {
+    const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+    expect(prompt.toLowerCase()).toContain(
+      "if a shirt or polo is selected with no outerwear over it, that shirt/polo must be fully visible"
+    );
+    expect(prompt.toLowerCase()).toContain("this visibility goal is secondary to preserving that outerwear's own closure state");
+    expect(prompt.toLowerCase()).toContain("do not open a jacket that the reference shows closed just to reveal more of the layer beneath it");
+  });
+
+  it("requires both legs and shoes (when selected) to remain visible with a centered, balanced pose (v22 merge)", () => {
+    const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+    expect(prompt.toLowerCase()).toContain("both legs and shoes (when shoes are selected) must be visible");
+  });
+
+  it("adds natural lighting and ARROW's classic American heritage/brand-identity language to background and lighting (v22 merge)", () => {
+    const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+    expect(prompt.toLowerCase()).toContain("lighting should be natural and flattering");
+    expect(prompt.toLowerCase()).toContain("a clean, classic american setting");
+    expect(prompt.toLowerCase()).toContain("reflect arrow's classic american heritage throughout");
+  });
+
   it("requires the jacket's closure mechanism (zipper vs. buttons) to be preserved exactly -- the regression this consolidation was written to fix", () => {
     const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
     expect(prompt).toContain("IT MUST REMAIN A ZIPPER.");
@@ -123,6 +157,15 @@ describe("buildVisualizationPrompt", () => {
     expect(prompt.toLowerCase()).toContain("this api has no separate negative-prompt field");
     expect(prompt.toLowerCase()).toContain("button jacket instead of zipper jacket");
     expect(prompt.toLowerCase()).toContain("female model");
+  });
+
+  it("extends the never-render list with the v22 additions (torso-only presentation, unrealistic body proportions) and restates the shirt-visibility fallback", () => {
+    const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+    expect(prompt.toLowerCase()).toContain("torso-only presentation");
+    expect(prompt.toLowerCase()).toContain("unrealistic body proportions");
+    expect(prompt.toLowerCase()).toContain(
+      "when no outerwear is selected, or selected outerwear's own reference photo shows it open, never hide, partially show, or imply a selected shirt/polo"
+    );
   });
 
   describe("PROMPT_VERSION", () => {

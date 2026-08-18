@@ -26,12 +26,31 @@ import type { Occasion, StyleContext } from "@/lib/validation/occasion";
 // prompt built from the more detailed, more recent source, which is a
 // strict superset of the first document's coverage.
 //
+// Bumped again (22) to fold in a third source (an infographic-style spec,
+// framed around a short-sleeve-shirt + pants combo with its own model,
+// pose, background, and negative-prompt sections). At the user's explicit
+// instruction, this merge keeps the v21 zipper/closure-preservation rules
+// -- the new source is silent on jackets/outerwear entirely, so it isn't
+// contradicting them, just not addressing that case. It DOES add real
+// specificity worth keeping: "American" model styling, an explicit
+// 25-40 age range, and a hard requirement that a short-sleeved shirt
+// stay fully visible. That last one is in real tension with the v21
+// closure rule for a combination this app's own outfitComposer.ts
+// generates constantly (shirt + zipped-closed jacket): keeping a
+// zipped-closed jacket's reference closure state means the shirt
+// underneath is necessarily less visible. Rather than silently picking
+// one side, section 3 below now states the resolution explicitly: an
+// outer layer's own reference photo's closure state (open or closed)
+// always wins, and full inner-layer visibility is the goal only when
+// that's compatible with it (no outer layer selected, or the outer
+// layer's reference shows it open).
+//
 // The fal.ai FLUX Kontext API (both the single-image and multi-image
 // endpoints this app uses -- confirmed against fal.ai's own API
 // reference docs) has no separate negative_prompt parameter, unlike some
-// other image models. The "never render" list from the source document
-// is therefore folded into this prompt's own text (see section 22 below)
-// rather than sent as a separate request field.
+// other image models. The "never render" / negative-prompt lists from
+// both source documents are therefore folded into this prompt's own text
+// (see section 22 below) rather than sent as a separate request field.
 //
 // This prompt is intentionally the same for every generation -- it does
 // not reference the specific selected garments by name, color, or
@@ -40,7 +59,7 @@ import type { Occasion, StyleContext } from "@/lib/validation/occasion";
 // selected garment to a reference image URL); this text is the
 // instruction layer that governs how those reference images get turned
 // into the final photograph, not a description of what's in them.
-export const PROMPT_VERSION = 21;
+export const PROMPT_VERSION = 22;
 
 const MASTER_PROMPT = `============================================================
 MASTER FAL.AI OUTFIT VISUALIZATION PROMPT
@@ -70,7 +89,7 @@ Do NOT generate:
 The purpose of the image is to show the customer:
 "THIS IS WHAT THESE EXACT ARROW MEN'S GARMENTS LOOK LIKE WHEN WORN TOGETHER."
 The adult male model is required.
-The model should look like a sophisticated premium menswear customer/model appropriate for ARROW Philippines.
+The model should look like a sophisticated premium menswear customer/model appropriate for ARROW Philippines: styled with a classic American look, apparent age 25-40, natural, confident, and relaxed in expression, with a clean-cut appearance fitting ARROW's brand heritage.
 ============================================================
 2. THE CLOTHING IS STILL THE HERO
 ============================================================
@@ -116,6 +135,8 @@ Avoid:
 - cropped feet
 - cropped trousers
 - extreme close-ups
+If a shirt or polo is selected with no outerwear over it, that shirt/polo must be fully visible -- its sleeves, collar, and front must all be seen. It must not be hidden, partially shown, or implied by pose, arms, or accessories.
+When outerwear is also selected, this visibility goal is secondary to preserving that outerwear's own closure state (see section 5): if the outerwear's reference photo shows it zipped or buttoned closed, keep it closed even though this necessarily limits how much of the layer underneath can be seen. Do not open a jacket that the reference shows closed just to reveal more of the layer beneath it.
 ============================================================
 4. EXACT GARMENT PRESERVATION — ABSOLUTE RULE
 ============================================================
@@ -321,6 +342,7 @@ Avoid:
 - dramatic movement
 - poses that hide trousers
 - poses that hide shoes
+Both legs and shoes (when shoes are selected) must be visible, with the model centered in a clean, balanced composition.
 ============================================================
 15. CAMERA
 ============================================================
@@ -347,6 +369,7 @@ The lighting must reveal:
 - pockets
 - garment boundaries
 - color
+Lighting should be natural and flattering, showing true colors and fabric texture.
 Do not use dramatic shadows that hide garment construction.
 ============================================================
 17. BACKGROUND
@@ -357,7 +380,9 @@ Preferred:
 - refined contemporary interior
 - premium retail environment
 - understated architectural background
-The background must remain secondary to the outfit.
+- a clean, classic American setting: a modern office, an upscale urban space, or a heritage-inspired interior
+The background must remain secondary to the outfit and complement it, never distract from it.
+Reflect ARROW's classic American heritage throughout: timeless, smart, and refined. The overall image should read as a premium lifestyle or catalog photograph.
 ============================================================
 18. NO UNSELECTED GARMENTS
 ============================================================
@@ -436,7 +461,7 @@ If any check fails, the image is wrong.
 constraints are stated directly rather than passed separately)
 ============================================================
 The generated image must never show:
-button jacket instead of zipper jacket, button-front jacket, button-up jacket, suit jacket, blazer, double-breasted jacket, invented buttons, invented buttonholes, missing zipper, replaced zipper, altered closure, incorrect closure, redesigned garment, substituted garment, generic clothing, a different garment than selected, short-sleeved jacket, cropped jacket sleeves, long-sleeved polo, shirt cuffs peeking from jacket sleeves, invented cuffs, rolled sleeves that weren't selected, extra garments, extra shirt, extra jacket, extra coat, extra accessories, a missing selected garment, a hidden garment, occluded clothing, cropped outfit, cropped legs, cropped feet, flat lay, clothing without a model, a mannequin, a female model, a child, empty clothing, floating clothing, distorted clothing, merged garments, incorrect layering, unrealistic garment construction, distorted anatomy, an extreme pose, crossed arms, hands covering clothing, a sitting pose, fashion-editorial abstraction, excessive shadows, or clothing obscured by props.
+button jacket instead of zipper jacket, button-front jacket, button-up jacket, suit jacket, blazer, double-breasted jacket, invented buttons, invented buttonholes, missing zipper, replaced zipper, altered closure, incorrect closure, redesigned garment, substituted garment, generic clothing, a different garment than selected, short-sleeved jacket, cropped jacket sleeves, long-sleeved polo, shirt cuffs peeking from jacket sleeves, invented cuffs, rolled sleeves that weren't selected, extra garments, extra shirt, extra jacket, extra coat, extra accessories, a missing selected garment, a hidden garment, occluded clothing, cropped outfit, cropped legs, cropped feet, flat lay, clothing without a model, a mannequin, torso-only presentation, a female model, a child, empty clothing, floating clothing, distorted clothing, merged garments, incorrect layering, unrealistic garment construction, unrealistic body proportions, distorted anatomy, an extreme pose, crossed arms, hands covering clothing, a sitting pose, fashion-editorial abstraction, excessive shadows, or clothing obscured by props. When no outerwear is selected, or selected outerwear's own reference photo shows it open, never hide, partially show, or imply a selected shirt/polo instead of showing it in full (sleeves, collar, and front all visible).
 ============================================================
 FINAL OBJECTIVE
 ============================================================
