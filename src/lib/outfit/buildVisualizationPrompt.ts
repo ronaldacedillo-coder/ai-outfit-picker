@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 11;
+export const PROMPT_VERSION = 12;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -425,6 +425,48 @@ function buildCriticalGarmentFidelityLines(garments: OutfitGarmentInput[]): stri
   ];
 }
 
+// Leading, high-emphasis rule block for the outerwear+top case: a real
+// generation showed a selected short-sleeve shirt worn under a jacket
+// rendered fully zipped/buttoned closed, hiding the shirt entirely --
+// the reference-fidelity instructions elsewhere in the prompt (preserve
+// this exact garment, don't alter it) say nothing about the jacket's own
+// open/closed state, so nothing was actually telling FLUX the jacket
+// needed to stay open for the shirt underneath to be visible at all.
+//
+// Deliberately scoped to outerwear+top only -- not outerwear+top+bottom
+// like buildCriticalBeltVisibilityLines below -- so it also fires for a
+// jacket-over-shirt combination with no bottom/belt in play, which the
+// belt-visibility block never covers since it requires a bottom too.
+// Where both blocks fire together (the common case: shirt + jacket +
+// pants), they reinforce the same "worn open" requirement from two
+// independent angles (shirt visibility, belt visibility) rather than
+// conflicting -- matching this file's established pattern of restating a
+// high-error-rate constraint in more than one place (see the composition
+// lock and the belt visibility block itself).
+function buildCriticalLayeringVisibilityLines(garments: OutfitGarmentInput[]): string[] {
+  const outerwear = garments.find((g) => normalize(g.category) === "outerwear");
+  const tops = garments.filter((g) => normalize(g.category) === "top");
+  if (!outerwear || tops.length === 0) return [];
+
+  const outerwearIndex = garments.indexOf(outerwear);
+  const topDescriptions = tops
+    .map((t) => `the ${t.primaryColor} ${humanize(t.subcategory)}`)
+    .join(" and ");
+
+  return [
+    "CRITICAL LAYERING VISIBILITY RULE -- THE JACKET MUST BE OPEN SO THE SHIRT UNDERNEATH IS VISIBLE:",
+    "",
+    `This outfit layers garment ${outerwearIndex + 1} (the ${humanize(outerwear.subcategory)}) over ${topDescriptions}. The whole point of selecting both garments is that both are visible in the result -- a jacket rendered fully zipped, buttoned, or otherwise closed hides the shirt underneath and defeats the purpose of the selection. This is exactly as important as preserving either garment's own identity, color, or construction.`,
+    "",
+    `Garment ${outerwearIndex + 1} must be worn open at the front: unzipped if it closes with a zipper, unbuttoned if it closes with buttons, with the two front panels separated. Do not render it zipped up, buttoned closed, or fastened in any way.`,
+    "",
+    `The open front must clearly reveal ${topDescriptions} underneath -- its collar, chest, and front placket must be visible in the gap between the jacket's open front panels, not obscured by the jacket.`,
+    "",
+    "Before finishing, verify the shirt or top underneath is actually visible through the jacket's open front in the generated image. If the jacket appears closed and the layer underneath cannot be seen, the image is wrong.",
+    "",
+  ];
+}
+
 // Leading, high-emphasis rule block for the outerwear+bottom case,
 // promoted here after the mid-prompt belt-visibility instructions in
 // buildBeltLines proved unreliable across multiple real generations even
@@ -480,6 +522,9 @@ export function buildVisualizationPrompt(
     // 0. Leading critical garment-fidelity rule (only when outerwear +
     // short-sleeve top are both selected -- see buildCriticalGarmentFidelityLines)
     ...buildCriticalGarmentFidelityLines(garments),
+    // 0a. Leading critical layering-visibility rule (only when outerwear +
+    // any top are both selected -- see buildCriticalLayeringVisibilityLines)
+    ...buildCriticalLayeringVisibilityLines(garments),
     // 0b. Leading critical belt-visibility rule (only when outerwear +
     // bottom are both selected -- see buildCriticalBeltVisibilityLines)
     ...buildCriticalBeltVisibilityLines(garments),

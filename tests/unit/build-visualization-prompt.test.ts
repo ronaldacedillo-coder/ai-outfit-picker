@@ -441,6 +441,79 @@ describe("buildVisualizationPrompt", () => {
     });
   });
 
+  describe("critical layering-visibility rule (outerwear + top)", () => {
+    const navyJacket: OutfitGarmentInput = {
+      imageUrl: "https://example.com/jacket.jpg",
+      role: "outerwear",
+      category: "outerwear",
+      subcategory: "zip_up_jacket",
+      primaryColor: "navy",
+      pattern: "solid",
+      style: "casual",
+    };
+    const blueShortSleeveShirt: OutfitGarmentInput = {
+      imageUrl: "https://example.com/shirt.jpg",
+      role: "top",
+      category: "top",
+      subcategory: "short_sleeve_shirt",
+      primaryColor: "blue",
+      pattern: "solid",
+      style: "casual",
+    };
+
+    it("leads the prompt with the critical layering-visibility block when outerwear and a top are both selected, naming the actual garments", () => {
+      const prompt = buildVisualizationPrompt([navyJacket, blueShortSleeveShirt]);
+      expect(prompt).toContain("CRITICAL LAYERING VISIBILITY RULE -- THE JACKET MUST BE OPEN SO THE SHIRT UNDERNEATH IS VISIBLE:");
+      expect(prompt).toContain("the blue short sleeve shirt");
+      expect(prompt.toLowerCase()).toContain("unzipped if it closes with a zipper");
+      expect(prompt.toLowerCase()).toContain("must clearly reveal");
+      expect(prompt.toLowerCase()).toContain("verify the shirt or top underneath is actually visible");
+      // Must lead the prompt: after the unconditional composition-lock
+      // block, before general task framing, and (per the assembly order in
+      // buildVisualizationPrompt) after the garment-fidelity block but
+      // before the belt-visibility block.
+      expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
+      expect(prompt.indexOf("CRITICAL LAYERING VISIBILITY RULE")).toBeGreaterThan(0);
+      expect(prompt.indexOf("CRITICAL LAYERING VISIBILITY RULE")).toBeLessThan(
+        prompt.indexOf("Photorealistic professional male model")
+      );
+    });
+
+    it("positions before the critical belt-visibility block when a bottom is also selected", () => {
+      const prompt = buildVisualizationPrompt([navyJacket, blueShortSleeveShirt, pants]);
+      expect(prompt.indexOf("CRITICAL LAYERING VISIBILITY RULE")).toBeGreaterThan(0);
+      expect(prompt.indexOf("CRITICAL LAYERING VISIBILITY RULE")).toBeLessThan(
+        prompt.indexOf("CRITICAL BELT VISIBILITY RULE")
+      );
+    });
+
+    it("fires for a long-sleeve top too, not just short-sleeve (the fix must apply to all garment combinations with the same issue)", () => {
+      const longSleeveShirt: OutfitGarmentInput = {
+        ...blueShortSleeveShirt,
+        subcategory: "dress_shirt",
+        visualDetails: { sleeve: "long sleeve" },
+      };
+      const prompt = buildVisualizationPrompt([navyJacket, longSleeveShirt]);
+      expect(prompt).toContain("CRITICAL LAYERING VISIBILITY RULE");
+    });
+
+    it("fires even when no bottom is selected (the belt-visibility block never covers this case)", () => {
+      const prompt = buildVisualizationPrompt([navyJacket, blueShortSleeveShirt]);
+      expect(prompt).toContain("CRITICAL LAYERING VISIBILITY RULE");
+      expect(prompt).not.toContain("CRITICAL BELT VISIBILITY RULE");
+    });
+
+    it("does not add the block when no outerwear is selected", () => {
+      const prompt = buildVisualizationPrompt([blueShortSleeveShirt]);
+      expect(prompt).not.toContain("CRITICAL LAYERING VISIBILITY RULE");
+    });
+
+    it("does not add the block when no top is selected", () => {
+      const prompt = buildVisualizationPrompt([navyJacket, pants]);
+      expect(prompt).not.toContain("CRITICAL LAYERING VISIBILITY RULE");
+    });
+  });
+
   describe("color, pattern, and silhouette fidelity", () => {
     it("adds an exact hex-anchored color line when primaryColorHex is provided", () => {
       const withHex: OutfitGarmentInput = { ...shirt, primaryColorHex: "#1B2A4A" };
