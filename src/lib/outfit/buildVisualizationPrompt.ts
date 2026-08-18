@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 13;
+export const PROMPT_VERSION = 14;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -468,6 +468,19 @@ function buildCriticalGarmentFidelityLines(garments: OutfitGarmentInput[]): stri
 // conflicting -- matching this file's established pattern of restating a
 // high-error-rate constraint in more than one place (see the composition
 // lock and the belt visibility block itself).
+//
+// A later real generation (after this block already existed) showed the
+// model complying with "open, front panels separated" in an unintended
+// way: rather than letting the jacket hang open naturally, it posed the
+// model actively gripping both lapels and pulling the jacket open with
+// his hands, like a jacket-reveal gesture. Nothing in this block said the
+// open front had to be a *passive, natural* state rather than an active
+// pose, so the generic "Natural posture." line elsewhere in the prompt
+// (too weak/unspecific on its own, same failure category as every other
+// instruction promoted to a CRITICAL block in this file) lost out to the
+// much more detailed open-front instructions here. Addressed directly in
+// this same block rather than a new one, since it's the same instruction
+// causing the side effect.
 function buildCriticalLayeringVisibilityLines(garments: OutfitGarmentInput[]): string[] {
   const outerwear = garments.find((g) => normalize(g.category) === "outerwear");
   const tops = garments.filter((g) => normalize(g.category) === "top");
@@ -487,7 +500,9 @@ function buildCriticalLayeringVisibilityLines(garments: OutfitGarmentInput[]): s
     "",
     `The open front must clearly reveal ${topDescriptions} underneath -- its collar, chest, and front placket must be visible in the gap between the jacket's open front panels, not obscured by the jacket.`,
     "",
-    "Before finishing, verify the shirt or top underneath is actually visible through the jacket's open front in the generated image. If the jacket appears closed and the layer underneath cannot be seen, the image is wrong.",
+    "The jacket must hang open naturally on its own, as it would if simply left unzipped or unbuttoned -- this is a passive, static state of the garment, not a pose or action. The model must stand in a normal, relaxed, natural standing posture with his arms and hands relaxed at his sides (or in a similarly natural resting position). Do not have the model grip, hold, pull open, spread apart, or otherwise touch the jacket's lapels or front panels with his hands -- his hands must not be interacting with the jacket at all.",
+    "",
+    "Before finishing, verify two things in the generated image: (1) the shirt or top underneath is actually visible through the jacket's open front, and (2) the model is standing naturally with his hands not touching or holding the jacket open. If either is wrong -- the jacket appears closed, or the model is gripping/holding the jacket open with his hands -- the image is wrong.",
     "",
   ];
 }

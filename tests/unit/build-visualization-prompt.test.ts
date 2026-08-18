@@ -485,7 +485,10 @@ describe("buildVisualizationPrompt", () => {
       expect(prompt).toContain("the blue short sleeve shirt");
       expect(prompt.toLowerCase()).toContain("unzipped if it closes with a zipper");
       expect(prompt.toLowerCase()).toContain("must clearly reveal");
-      expect(prompt.toLowerCase()).toContain("verify the shirt or top underneath is actually visible");
+      expect(prompt.toLowerCase()).toContain("the shirt or top underneath is actually visible");
+      expect(prompt.toLowerCase()).toContain("hang open naturally on its own");
+      expect(prompt.toLowerCase()).toContain("do not have the model grip, hold, pull open, spread apart, or otherwise touch the jacket's lapels or front panels");
+      expect(prompt.toLowerCase()).toContain("model is standing naturally with his hands not touching or holding the jacket open");
       // Must lead the prompt: after the unconditional composition-lock
       // block, before general task framing, and (per the assembly order in
       // buildVisualizationPrompt) after the garment-fidelity block but
