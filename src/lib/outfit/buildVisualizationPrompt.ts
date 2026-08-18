@@ -59,7 +59,33 @@ import type { Occasion, StyleContext } from "@/lib/validation/occasion";
 // selected garment to a reference image URL); this text is the
 // instruction layer that governs how those reference images get turned
 // into the final photograph, not a description of what's in them.
-export const PROMPT_VERSION = 22;
+//
+// Bumped again (23) from a follow-up brand-supplied update ("CLAUDE CODE
+// -- FOLLOW UP PROMPT UPDATE FOR FAL.AI OUTFIT GENERATION"). Two things
+// worth calling out about this one:
+//
+// 1. That source's section 2 specified the model's race/ethnicity --
+//    "Use a Caucasian (White) American male model" plus an explicit list
+//    of ethnicities to avoid (Asian, African, Middle Eastern, Indian,
+//    Latino/Hispanic). That is race-based exclusion criteria for who can
+//    appear in the brand's generated marketing imagery, and it was left
+//    out of this prompt entirely -- including a matching set of terms
+//    that source wanted added to the negative-render list. Section 1
+//    below still uses the existing race-neutral "classic American look...
+//    natural, confident" styling language from v21/v22, unchanged.
+//
+// 2. That source also required a selected shirt/polo to stay visible
+//    EVEN WHEN WORN UNDER A JACKET, which is a direct reversal of the
+//    v21/v22 rule that a jacket shown zipped/buttoned closed in its own
+//    reference photo should stay closed (added specifically to fix a
+//    zipper-to-blazer conversion regression). Per explicit user decision,
+//    shirt/polo visibility now wins: outerwear is opened/unzipped as
+//    needed to keep an underlying shirt/polo visible, even if its
+//    reference photo shows it fully closed. This changes only how OPEN
+//    the outerwear is worn -- the v21 closure-MECHANISM rules (a zipper
+//    must stay a zipper, construction/hardware preserved exactly) are
+//    untouched; see sections 3 and 5 below for the exact wording.
+export const PROMPT_VERSION = 23;
 
 const MASTER_PROMPT = `============================================================
 MASTER FAL.AI OUTFIT VISUALIZATION PROMPT
@@ -124,6 +150,7 @@ Do not crop:
 - shirt/polo
 - trousers
 - shoes if selected
+Do not crop at the chest or waist. Show the complete outfit from the upper torso to the shoes.
 Do not use poses that hide important garment areas.
 Avoid:
 - crossed arms covering the chest
@@ -135,8 +162,8 @@ Avoid:
 - cropped feet
 - cropped trousers
 - extreme close-ups
-If a shirt or polo is selected with no outerwear over it, that shirt/polo must be fully visible -- its sleeves, collar, and front must all be seen. It must not be hidden, partially shown, or implied by pose, arms, or accessories.
-When outerwear is also selected, this visibility goal is secondary to preserving that outerwear's own closure state (see section 5): if the outerwear's reference photo shows it zipped or buttoned closed, keep it closed even though this necessarily limits how much of the layer underneath can be seen. Do not open a jacket that the reference shows closed just to reveal more of the layer beneath it.
+If a shirt or polo is selected, it must remain fully visible -- its sleeves, collar, and front must all be seen -- whether or not outerwear is also selected.
+When outerwear is also selected, this takes priority over preserving the outerwear's own reference closure state (compare section 5): open or unzip the outerwear as needed so the shirt/polo underneath stays visible, even if the outerwear's reference photo shows it zipped or buttoned fully closed. Do not hide the shirt/polo under a closed jacket. This changes only how open the outerwear is worn, not its construction -- the outerwear's closure MECHANISM (zipper vs. buttons, hardware, track) must still be reproduced exactly; a zip-up jacket worn open must still visibly be a zip-up jacket, not a different garment.
 ============================================================
 4. EXACT GARMENT PRESERVATION — ABSOLUTE RULE
 ============================================================
@@ -178,9 +205,8 @@ Preserve:
 - front opening construction
 - collar/neck construction
 - jacket front construction
-If the selected jacket is zipped closed in the reference:
-KEEP IT ZIPPED CLOSED.
-Do not open it.
+If the selected jacket is zipped closed in the reference, keep it zipped closed BY DEFAULT.
+EXCEPTION: if a shirt or polo is also selected underneath the jacket, open or unzip the jacket enough to keep that shirt/polo fully visible (see section 3) -- shirt/polo visibility takes priority over the jacket's default reference closure state. This changes only how open the jacket is worn, never its construction: the zipper itself, its track, pull, and hardware must still be reproduced exactly, and the garment must still visibly be a zip-up jacket, not a different garment.
 Do not replace the zipper with buttons.
 Do not add buttons that do not exist.
 ============================================================
@@ -196,6 +222,7 @@ BUCKLE → BUCKLE
 DRAWSTRING → DRAWSTRING
 Never substitute one closure type for another.
 If a garment has no visible closure, do not invent one.
+Preserving a closure mechanism means preserving what KIND of closure it is (zipper, button, snap, etc.) and its construction -- not necessarily whether it is worn open or closed, which section 3 and section 5 govern when outerwear is worn over a selected shirt or polo.
 ============================================================
 7. CRITICAL GARMENT IDENTITY RULE
 ============================================================
@@ -330,6 +357,7 @@ Preferred:
 - natural
 - professional
 - arms relaxed at the sides or positioned so they do not obscure clothing
+- one hand relaxed in a pocket, if natural for the pose
 - legs naturally separated
 - front or subtle three-quarter orientation
 Avoid:
@@ -342,6 +370,7 @@ Avoid:
 - dramatic movement
 - poses that hide trousers
 - poses that hide shoes
+- any pose that hides the shirt/polo underneath outerwear
 Both legs and shoes (when shoes are selected) must be visible, with the model centered in a clean, balanced composition.
 ============================================================
 15. CAMERA
@@ -371,6 +400,7 @@ The lighting must reveal:
 - color
 Lighting should be natural and flattering, showing true colors and fabric texture.
 Do not use dramatic shadows that hide garment construction.
+Use soft shadows and balanced exposure rather than harsh contrast that could hide garment details or a shirt/polo worn underneath outerwear.
 ============================================================
 17. BACKGROUND
 ============================================================
@@ -381,6 +411,12 @@ Preferred:
 - premium retail environment
 - understated architectural background
 - a clean, classic American setting: a modern office, an upscale urban space, or a heritage-inspired interior
+- a downtown city street with classic American architecture
+- an upscale office environment
+- a country club or golf course setting
+- a coastal boardwalk
+- a refined cafe or bookstore interior
+- a neutral studio with warm tones
 The background must remain secondary to the outfit and complement it, never distract from it.
 Reflect ARROW's classic American heritage throughout: timeless, smart, and refined. The overall image should read as a premium lifestyle or catalog photograph.
 ============================================================
@@ -461,7 +497,7 @@ If any check fails, the image is wrong.
 constraints are stated directly rather than passed separately)
 ============================================================
 The generated image must never show:
-button jacket instead of zipper jacket, button-front jacket, button-up jacket, suit jacket, blazer, double-breasted jacket, invented buttons, invented buttonholes, missing zipper, replaced zipper, altered closure, incorrect closure, redesigned garment, substituted garment, generic clothing, a different garment than selected, short-sleeved jacket, cropped jacket sleeves, long-sleeved polo, shirt cuffs peeking from jacket sleeves, invented cuffs, rolled sleeves that weren't selected, extra garments, extra shirt, extra jacket, extra coat, extra accessories, a missing selected garment, a hidden garment, occluded clothing, cropped outfit, cropped legs, cropped feet, flat lay, clothing without a model, a mannequin, torso-only presentation, a female model, a child, empty clothing, floating clothing, distorted clothing, merged garments, incorrect layering, unrealistic garment construction, unrealistic body proportions, distorted anatomy, an extreme pose, crossed arms, hands covering clothing, a sitting pose, fashion-editorial abstraction, excessive shadows, or clothing obscured by props. When no outerwear is selected, or selected outerwear's own reference photo shows it open, never hide, partially show, or imply a selected shirt/polo instead of showing it in full (sleeves, collar, and front all visible).
+button jacket instead of zipper jacket, button-front jacket, button-up jacket, suit jacket, blazer, double-breasted jacket, invented buttons, invented buttonholes, missing zipper, replaced zipper, altered closure, incorrect closure, redesigned garment, substituted garment, generic clothing, a different garment than selected, short-sleeved jacket, cropped jacket sleeves, long-sleeved polo, shirt cuffs peeking from jacket sleeves, invented cuffs, rolled sleeves that weren't selected, extra garments, extra shirt, extra jacket, extra coat, extra accessories, a missing selected garment, a hidden garment, occluded clothing, cropped outfit, cropped legs, cropped feet, missing shoes, cropped shoes, flat lay, clothing without a model, a mannequin, torso-only presentation, a female model, a child, empty clothing, floating clothing, distorted clothing, merged garments, incorrect layering, unrealistic garment construction, unrealistic body proportions, distorted anatomy, an extreme pose, crossed arms, hands covering clothing, a sitting pose, fashion-editorial abstraction, excessive shadows, harsh contrast that hides garment details, clothing obscured by props, a shirt or polo hidden or covered by a jacket, a shirt not visible under a jacket, or a jacket covering the shirt. Never hide, partially show, or imply a selected shirt/polo instead of showing it in full (sleeves, collar, and front all visible) -- this applies whether or not outerwear is also selected; open or unzip outerwear as needed rather than hiding the shirt/polo beneath it.
 ============================================================
 FINAL OBJECTIVE
 ============================================================

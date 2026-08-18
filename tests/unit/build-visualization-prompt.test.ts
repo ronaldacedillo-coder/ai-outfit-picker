@@ -12,11 +12,22 @@ import type { OutfitGarmentInput } from "@/lib/providers/types";
 // (zipper stays a zipper, buttons stay buttons) after that exact
 // regression showed up in review, then further merged (v22) with a third,
 // infographic-style source that added explicit American/25-40 model
-// styling, a hard shirt/polo-visibility requirement, and a handful of
-// pose/background/negative-list additions -- reconciled against the v21
-// closure rule rather than left silently contradicting it (see section 3
-// and the PROMPT_VERSION comment in buildVisualizationPrompt.ts for the
-// resolution: an outer layer's own reference closure state always wins).
+// styling and a handful of pose/background/negative-list additions.
+//
+// v23 merged a fourth, follow-up source. Two things worth noting about
+// it here (see the fuller PROMPT_VERSION comment in
+// buildVisualizationPrompt.ts): first, that source specified the model's
+// race/ethnicity (a "Caucasian (White)" requirement plus a list of
+// ethnicities to avoid) -- that content was deliberately left out, since
+// it's race-based exclusion criteria for who can appear in generated
+// marketing imagery; a regression test below guards against it silently
+// reappearing. Second, per explicit user decision, shirt/polo visibility
+// now takes PRIORITY over an outer garment's own reference closure state
+// -- a reversal of the v21/v22 rule -- so outerwear is opened/unzipped as
+// needed to keep an underlying shirt/polo visible; only the closure
+// MECHANISM (zipper vs. buttons, construction) is still preserved
+// exactly regardless of open/closed state.
+//
 // This test suite is intentionally much smaller than the old dynamic one
 // -- it confirms the function is a stable, input-independent pass-through
 // of the master prompt, plus sanity checks on its content and on
@@ -111,13 +122,31 @@ describe("buildVisualizationPrompt", () => {
     expect(prompt).toContain("25-40");
   });
 
-  it("requires a shirt/polo worn with no outerwear to be fully visible, while an outer layer's own reference closure state still wins when outerwear is selected (v22 reconciliation)", () => {
+  it("requires a selected shirt/polo to stay fully visible even under outerwear, opening/unzipping the outerwear as needed rather than preserving its closed reference state (v23 reversal)", () => {
     const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
     expect(prompt.toLowerCase()).toContain(
-      "if a shirt or polo is selected with no outerwear over it, that shirt/polo must be fully visible"
+      "if a shirt or polo is selected, it must remain fully visible -- its sleeves, collar, and front must all be seen -- whether or not outerwear is also selected"
     );
-    expect(prompt.toLowerCase()).toContain("this visibility goal is secondary to preserving that outerwear's own closure state");
-    expect(prompt.toLowerCase()).toContain("do not open a jacket that the reference shows closed just to reveal more of the layer beneath it");
+    expect(prompt.toLowerCase()).toContain("this takes priority over preserving the outerwear's own reference closure state");
+    expect(prompt.toLowerCase()).toContain("do not hide the shirt/polo under a closed jacket");
+  });
+
+  it("still preserves the jacket's closure MECHANISM (zipper construction/hardware) even when it must be shown open for shirt visibility (v23)", () => {
+    const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+    expect(prompt.toLowerCase()).toContain("shirt/polo visibility takes priority over the jacket's default reference closure state");
+    expect(prompt.toLowerCase()).toContain(
+      "the zipper itself, its track, pull, and hardware must still be reproduced exactly, and the garment must still visibly be a zip-up jacket"
+    );
+  });
+
+  it("does not include race- or ethnicity-based model selection criteria (regression guard against a since-declined source document)", () => {
+    const prompt = buildVisualizationPrompt([jacket, shirt, pants]).toLowerCase();
+    expect(prompt).not.toContain("caucasian");
+    expect(prompt).not.toContain("white american");
+    expect(prompt).not.toContain("avoid asian");
+    expect(prompt).not.toContain("latino");
+    expect(prompt).not.toContain("hispanic");
+    expect(prompt).not.toContain("middle eastern");
   });
 
   it("requires both legs and shoes (when selected) to remain visible with a centered, balanced pose (v22 merge)", () => {
@@ -159,12 +188,17 @@ describe("buildVisualizationPrompt", () => {
     expect(prompt.toLowerCase()).toContain("female model");
   });
 
-  it("extends the never-render list with the v22 additions (torso-only presentation, unrealistic body proportions) and restates the shirt-visibility fallback", () => {
+  it("extends the never-render list with the v22 additions (torso-only presentation, unrealistic body proportions)", () => {
     const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
     expect(prompt.toLowerCase()).toContain("torso-only presentation");
     expect(prompt.toLowerCase()).toContain("unrealistic body proportions");
+  });
+
+  it("restates the shirt-visibility rule unconditionally in the never-render list, since v23 removed the old 'only when outerwear is open' carve-out", () => {
+    const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+    expect(prompt.toLowerCase()).toContain("a shirt or polo hidden or covered by a jacket");
     expect(prompt.toLowerCase()).toContain(
-      "when no outerwear is selected, or selected outerwear's own reference photo shows it open, never hide, partially show, or imply a selected shirt/polo"
+      "never hide, partially show, or imply a selected shirt/polo instead of showing it in full (sleeves, collar, and front all visible) -- this applies whether or not outerwear is also selected"
     );
   });
 
