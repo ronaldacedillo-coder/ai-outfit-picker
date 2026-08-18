@@ -15,7 +15,15 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // guidance_scale, so PROMPT_VERSION is the only lever available to force
 // that specific already-cached bad image to regenerate instead of being
 // served again.
-export const PROMPT_VERSION = 17;
+//
+// Bumped again (18) at the user's explicit request to reset AI generation
+// after several visualization bugs recurred across a short string of
+// production deploys -- this isn't tied to any single wording or code
+// change here; it's a deliberate blanket cache-bust so every outfit
+// combination regenerates fresh under the current (reverted-to-6.5,
+// prompt-only-fix) state rather than any of the intermediate, possibly
+// still-cached attempts in between.
+export const PROMPT_VERSION = 18;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
