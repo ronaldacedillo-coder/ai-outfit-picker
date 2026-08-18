@@ -23,7 +23,11 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // combination regenerates fresh under the current (reverted-to-6.5,
 // prompt-only-fix) state rather than any of the intermediate, possibly
 // still-cached attempts in between.
-export const PROMPT_VERSION = 18;
+// Bumped again (19) after a real generation rendered a female model for
+// this men's-fashion-brand app -- see buildCriticalGenderLines below,
+// promoting the previously mid-prompt-only "male model" wording to its
+// own leading CRITICAL block.
+export const PROMPT_VERSION = 19;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -440,6 +444,28 @@ function buildCriticalPersonFramingLines(): string[] {
   ];
 }
 
+// Leading, unconditional gender rule -- a real generation rendered a
+// female model despite the mid-prompt task-framing line further down
+// already saying "male model". This app is exclusively for a men's
+// fashion brand and every generated image must show a male model
+// wearing menswear -- there is no scenario where a female model is
+// correct. Like every other requirement in this file that turned out
+// not to be reliably followed as a single mid-prompt mention, this is
+// promoted to its own short, leading, unmissable block rather than
+// trusting the existing "male model" wording alone (which stays in
+// place further down as reinforcement, matching this file's established
+// restate-in-multiple-places pattern).
+function buildCriticalGenderLines(): string[] {
+  return [
+    "CRITICAL GENDER RULE -- THE MODEL MUST BE MALE:",
+    "",
+    "This is a men's fashion brand. The model in the generated photograph must be an adult male, styled and posed as a men's fashion/menswear model. Never generate a female model, a model with feminine-coded features or styling, or an ambiguous/androgynous presentation.",
+    "",
+    "Before finishing, verify the generated model is clearly male. If the model appears female or ambiguous, the image is wrong.",
+    "",
+  ];
+}
+
 // Leading, unconditional pose rule -- a real generation kept posing the
 // model actively gripping both jacket lapels with his hands and pulling
 // them open (thumbs hooked into the front panels), rather than just
@@ -638,6 +664,9 @@ export function buildVisualizationPrompt(
     // -0.5. Leading critical person-framing rule (unconditional, every
     // generation -- see buildCriticalPersonFramingLines)
     ...buildCriticalPersonFramingLines(),
+    // -0.4. Leading critical gender rule (unconditional, every generation
+    // -- see buildCriticalGenderLines)
+    ...buildCriticalGenderLines(),
     // -0.25. Leading critical natural-pose rule (only when outerwear is
     // selected -- see buildCriticalNaturalPoseLines)
     ...buildCriticalNaturalPoseLines(garments),

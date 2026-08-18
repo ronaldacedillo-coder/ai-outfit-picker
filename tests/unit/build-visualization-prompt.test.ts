@@ -123,6 +123,24 @@ describe("buildVisualizationPrompt", () => {
     });
   });
 
+  describe("critical gender rule (regression: a real generation rendered a female model for this men's-fashion-brand app despite the mid-prompt \"male model\" wording further down)", () => {
+    it("leads every prompt with the critical gender rule, regardless of which garments are selected", () => {
+      const withOuterwear = buildVisualizationPrompt([jacket, shirt, pants]);
+      const singleGarment = buildVisualizationPrompt([shirt]);
+      for (const prompt of [withOuterwear, singleGarment]) {
+        expect(prompt.indexOf("CRITICAL GENDER RULE -- THE MODEL MUST BE MALE:")).toBeGreaterThan(
+          prompt.indexOf("CRITICAL COMPOSITION RULE")
+        );
+        expect(prompt.indexOf("CRITICAL GENDER RULE")).toBeLessThan(
+          prompt.indexOf("Photorealistic professional male model")
+        );
+        expect(prompt.toLowerCase()).toContain("this is a men's fashion brand");
+        expect(prompt.toLowerCase()).toContain("never generate a female model");
+        expect(prompt.toLowerCase()).toContain("verify the generated model is clearly male");
+      }
+    });
+  });
+
   describe("critical natural-pose rule (regression: a real generation posed the model gripping and pulling open the jacket's lapels with his hands instead of standing naturally with it just hanging open)", () => {
     it("leads the prompt with the critical natural-pose rule when outerwear is selected", () => {
       const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
