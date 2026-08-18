@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 12;
+export const PROMPT_VERSION = 13;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -377,6 +377,31 @@ function buildCriticalCompositionLines(): string[] {
   ];
 }
 
+// Leading, unconditional framing rule -- placed right after the
+// composition lock because a real generation showed the model producing
+// a headless, ghost-mannequin/product-photo-style crop: the frame started
+// right at the collar/shoulder line with no head, hair, or face visible
+// at all, just the garments as if worn by an invisible person. The
+// existing mid-prompt framing instruction (see section 9 below) only
+// specifies the *bottom* extent of the crop ("at least mid-thigh") and
+// never actually says the head must be included -- so a model that reads
+// "clothing is the primary visual focus" too literally has nothing
+// telling it the head can't be cropped away entirely. Always applies,
+// like the composition lock above, since this isn't scoped to any
+// particular garment combination.
+function buildCriticalPersonFramingLines(): string[] {
+  return [
+    "CRITICAL FRAMING RULE -- THE MODEL'S HEAD AND FACE MUST BE VISIBLE:",
+    "",
+    "This is a photograph of a real human model wearing the outfit -- not a product photo, ghost-mannequin shot, flat lay, or headless torso crop. The model's head, hair, and face must be fully visible in the frame, exactly as they would be in any normal photograph of a person.",
+    "",
+    "Frame the shot from the top of the model's head down to at least mid-thigh. Do not crop, cut off, or exclude the model's head or face for any reason, including to emphasize garment detail -- garment fidelity never justifies removing the person from the photograph.",
+    "",
+    "Before finishing, verify the model's head and face are both visible in the generated image. If the frame starts at the shoulders, neck, or collar with no head above it, the image is wrong.",
+    "",
+  ];
+}
+
 // Leading, high-emphasis rule block -- placed first in the prompt (before
 // task framing) so it governs everything that follows, at the user's
 // explicit request after the narrower, later-positioned sleeve-length
@@ -519,6 +544,9 @@ export function buildVisualizationPrompt(
     // -1. Leading critical composition-lock rule (unconditional, every
     // generation -- see buildCriticalCompositionLines)
     ...buildCriticalCompositionLines(),
+    // -0.5. Leading critical person-framing rule (unconditional, every
+    // generation -- see buildCriticalPersonFramingLines)
+    ...buildCriticalPersonFramingLines(),
     // 0. Leading critical garment-fidelity rule (only when outerwear +
     // short-sleeve top are both selected -- see buildCriticalGarmentFidelityLines)
     ...buildCriticalGarmentFidelityLines(garments),

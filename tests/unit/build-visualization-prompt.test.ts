@@ -87,6 +87,24 @@ describe("buildVisualizationPrompt", () => {
     });
   });
 
+  describe("critical person-framing rule (regression: a real generation cropped the frame at the collar/shoulder line, showing the garments worn by an invisible person with no head, hair, or face at all)", () => {
+    it("leads every prompt with the critical person-framing rule, immediately after the composition-lock rule, regardless of which garments are selected", () => {
+      const withOuterwear = buildVisualizationPrompt([jacket, shirt, pants]);
+      const singleGarment = buildVisualizationPrompt([shirt]);
+      for (const prompt of [withOuterwear, singleGarment]) {
+        expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
+        expect(prompt.indexOf("CRITICAL FRAMING RULE -- THE MODEL'S HEAD AND FACE MUST BE VISIBLE:")).toBeGreaterThan(0);
+        expect(prompt.indexOf("CRITICAL FRAMING RULE")).toBeLessThan(
+          prompt.indexOf("Photorealistic professional male model")
+        );
+        expect(prompt.toLowerCase()).toContain("not a product photo, ghost-mannequin shot, flat lay, or headless torso crop");
+        expect(prompt.toLowerCase()).toContain("head, hair, and face must be fully visible");
+        expect(prompt.toLowerCase()).toContain("do not crop, cut off, or exclude the model's head or face");
+        expect(prompt.toLowerCase()).toContain("verify the model's head and face are both visible");
+      }
+    });
+  });
+
   describe("dynamic negative constraints", () => {
     it("excludes known accessories not present in any selected garment", () => {
       const prompt = buildVisualizationPrompt([jacket, shirt, pants]).toLowerCase();
