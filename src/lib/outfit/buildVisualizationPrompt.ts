@@ -52,14 +52,6 @@ import type { Occasion, StyleContext } from "@/lib/validation/occasion";
 // both source documents are therefore folded into this prompt's own text
 // (see section 22 below) rather than sent as a separate request field.
 //
-// This prompt is intentionally the same for every generation -- it does
-// not reference the specific selected garments by name, color, or
-// construction detail. FLUX receives the actual selected garments as
-// reference images separately (see fal-flux.ts, which still maps each
-// selected garment to a reference image URL); this text is the
-// instruction layer that governs how those reference images get turned
-// into the final photograph, not a description of what's in them.
-//
 // Bumped again (23) from a follow-up brand-supplied update ("CLAUDE CODE
 // -- FOLLOW UP PROMPT UPDATE FOR FAL.AI OUTFIT GENERATION"). Two things
 // worth calling out about this one:
@@ -85,20 +77,120 @@ import type { Occasion, StyleContext } from "@/lib/validation/occasion";
 //    the outerwear is worn -- the v21 closure-MECHANISM rules (a zipper
 //    must stay a zipper, construction/hardware preserved exactly) are
 //    untouched; see sections 3 and 5 below for the exact wording.
-export const PROMPT_VERSION = 23;
+//
+// Bumped again (24) after a root-cause fix, not just a wording tweak. The
+// reported failure: a selected slate-blue SHORT-SLEEVED polo rendered as
+// a long-sleeved shirt, and a selected BLACK FULL-ZIP JACKET was omitted
+// from the image entirely. Root cause: since v20, this function has
+// returned the same static MASTER_PROMPT text regardless of which
+// garments were actually selected (see the old comment on
+// buildVisualizationPrompt below, now removed) -- the ONLY per-request
+// signal FLUX ever received about what to render was the reference
+// images themselves (see fal-flux.ts's image_url/image_urls), with zero
+// text-side information distinguishing item count, category, color,
+// sleeve length, or closure type. That's a real gap: reference images
+// alone were not reliably enough for FLUX to preserve every selected
+// item's identity across a 3-image multi-garment request, exactly as
+// reported. Fixed by reintroducing a DYNAMIC per-request section (see
+// "0. SELECTED GARMENT MANIFEST" below, built by buildGarmentManifest())
+// that lists every selected garment's role/category/subcategory/color/
+// pattern/style plus, where the product database has them, its sleeve
+// length and closure type (see OutfitGarmentInput.visualDetails, now
+// also populated by Gemini's "closure" field -- see gemini.ts). This is
+// additive, not a rollback of v20-23: all of the general, garment-
+// independent rules from those versions (sections 1-22 below) are
+// unchanged; the manifest is new content prepended ahead of them, marked
+// authoritative over both the general rules and FLUX's own visual
+// interpretation of the reference images. Section 13's old body (a
+// static, always-the-same "if your outfit contains 1. Jacket 2. Polo
+// 3. Trousers 4. Shoes..." example, unrelated to what was actually
+// selected) has been replaced with a reference to the real manifest, and
+// the header/final-objective wording now explicitly says to generate a
+// photograph of the model "wearing the exact selected garments provided
+// as references," per this fix's own instruction not to let FLUX "design
+// an outfit inspired by" the selection.
+export const PROMPT_VERSION = 24;
 
-const MASTER_PROMPT = `============================================================
+// Renders one garment's known attributes as a labeled block. Missing
+// visualDetails entries (sleeve/closure/collar/silhouette) are common --
+// that data depends on what Gemini's vision analysis actually reported
+// for that specific item (see gemini.ts) -- so a missing value says so
+// explicitly and defers to the reference image, rather than silently
+// omitting the line or guessing a default that could contradict what the
+// reference image actually shows.
+function attr(value: string | undefined | null, fallback: string): string {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : fallback;
+}
+
+const INFER_FROM_IMAGE =
+  "not recorded in the product database -- infer this from the reference image itself, and do not guess a value that contradicts what the reference image actually shows";
+
+function describeGarment(garment: OutfitGarmentInput, index: number, total: number): string {
+  const details = garment.visualDetails ?? {};
+  const colorLabel = garment.primaryColorHex
+    ? `${attr(garment.primaryColor, "unspecified")} (${garment.primaryColorHex})`
+    : attr(garment.primaryColor, "unspecified");
+  return [
+    `ITEM ${index + 1} of ${total}:`,
+    `Role: ${attr(garment.role, "unspecified")}`,
+    `Category: ${attr(garment.category, "unspecified")}`,
+    `Subcategory: ${attr(garment.subcategory, "unspecified")}`,
+    `Primary color: ${colorLabel}`,
+    `Pattern: ${attr(garment.pattern, "unspecified")}`,
+    `Style: ${attr(garment.style, "unspecified")}`,
+    `Sleeve length: ${attr(details.sleeve, INFER_FROM_IMAGE)}`,
+    `Closure: ${attr(details.closure, INFER_FROM_IMAGE)}`,
+    `Collar: ${attr(details.collar, INFER_FROM_IMAGE)}`,
+    `Silhouette: ${attr(details.silhouette, INFER_FROM_IMAGE)}`,
+    `Reference image: reference image ${index + 1} of ${total}, supplied alongside this prompt in this same order -- the authoritative visual source for this exact item's construction, color, and fine detail.`,
+  ].join("\n");
+}
+
+// The manifest is the fix for the specific failure this version was
+// bumped for: a request with N selected garments must make it
+// unambiguous, in the prompt TEXT (not just via N reference images),
+// that there are exactly N items, what each one is, and that all N must
+// appear. Every field here comes straight from the product database via
+// OutfitGarmentInput (see buildGarmentInput.ts) -- nothing is invented.
+function buildGarmentManifest(garments: OutfitGarmentInput[]): string {
+  if (garments.length === 0) {
+    // Should never happen in real use -- outfit-actions.ts rejects an
+    // empty selection before a generation is ever requested. Fails loud
+    // in the prompt text itself rather than silently letting FLUX invent
+    // an outfit from nothing if this invariant is ever violated upstream.
+    return "ERROR: no selected garments were provided with this request. Do not invent an outfit -- treat this as an application error, not a styling decision.";
+  }
+  const itemDescriptions = garments.map((g, i) => describeGarment(g, i, garments.length)).join("\n\n");
+  const itemChecklist = garments
+    .map((g, i) => {
+      const color = attr(g.primaryColor, "").trim();
+      const noun = attr(g.subcategory, attr(g.category, "selected item"));
+      return `${i + 1}. The exact ${[color, noun].filter(Boolean).join(" ")}`;
+    })
+    .join("\n");
+  return `There are exactly ${garments.length} selected garment${garments.length === 1 ? "" : "s"} for this request, retrieved directly from the ARROW product database, each with its own reference image. This manifest is AUTHORITATIVE: it takes priority over any general styling assumption elsewhere in this prompt and over the AI's own visual interpretation of the reference images. Do not add an item, omit an item, or substitute an item for a different one.
+
+${itemDescriptions}
+
+The final image MUST contain all ${garments.length} of the items above, each visually identifiable as the specific item described, in exactly this quantity -- no fewer, no more, no substitutions, no reinterpretation:
+${itemChecklist}`;
+}
+
+const MASTER_PROMPT_HEADER = `============================================================
 MASTER FAL.AI OUTFIT VISUALIZATION PROMPT
 ARROW PHILIPPINES — MEN'S FASHION
 ============================================================
-Generate a premium commercial menswear fashion photograph for ARROW Philippines that consistently:
-1. Shows the COMPLETE selected outfit being worn by an ADULT MALE MODEL.
-2. Preserves the EXACT construction and identity of every selected garment.
-3. Preserves the exact closure mechanism of each garment.
-4. Keeps ALL selected garments visible and identifiable.
-5. Never converts one garment type into another.
-6. Reads as a premium commercial menswear photograph appropriate for ARROW Philippines.
-============================================================
+Generate a realistic photograph of an adult male model WEARING THE EXACT SELECTED GARMENTS PROVIDED AS REFERENCES -- see the SELECTED GARMENT MANIFEST immediately below and the reference images supplied alongside this prompt. This is not a request to design an outfit "inspired by" the selection, or to style a similar look -- reproduce the exact selected ARROW products, worn together exactly as they exist in the product catalog.
+This photograph must consistently:
+1. Show the COMPLETE selected outfit being worn by an ADULT MALE MODEL.
+2. Preserve the EXACT construction and identity of every selected garment.
+3. Preserve the exact closure mechanism of each garment.
+4. Keep ALL selected garments visible and identifiable.
+5. Never convert one garment type into another.
+6. Read as a premium commercial menswear photograph appropriate for ARROW Philippines.`;
+
+const MASTER_PROMPT_BODY = `============================================================
 1. THE OUTFIT MUST BE WORN BY AN ADULT MALE MODEL
 ============================================================
 The generated image MUST show the selected outfit being worn by a realistic ADULT MALE MODEL.
@@ -313,11 +405,12 @@ generate the zip-up jacket.
 If the product is called "shirt" but the reference clearly shows a short-sleeved polo:
 generate the short-sleeved polo.
 IMAGE REFERENCE > GENERIC PRODUCT CATEGORY ASSUMPTIONS.
+The SELECTED GARMENT MANIFEST (section 0) and the reference images work together, not as competing sources: use the manifest's structured attributes (sleeve length, closure, color, pattern) to confirm what each reference image shows, and use the reference image itself for exact visual construction, silhouette, and fine detail. If they ever appear to conflict, still render the item as faithfully as possible to both -- never drop a selected garment, or fall back to a generic version of it, because of an apparent mismatch.
 ============================================================
 12. LAYERING
 ============================================================
 Maintain realistic physical layering.
-Example:
+Example (illustrative order only -- see section 0 for the garments actually selected in this request):
 adult male model
 ↓
 short-sleeved polo
@@ -333,19 +426,10 @@ Do not allow garments to pass through one another.
 ============================================================
 13. ALL SELECTED ITEMS MUST BE PRESENT
 ============================================================
-Every selected item must be represented in the final image.
-If the selected outfit contains:
-1. Jacket
-2. Polo
-3. Trousers
-4. Shoes
-the final image must contain:
-1. The exact jacket
-2. The exact polo
-3. The exact trousers
-4. The exact shoes
+Every item listed in the SELECTED GARMENT MANIFEST (section 0) must be represented in the final image, in exactly that quantity -- neither fewer nor more items.
 Do not omit an item because it is visually inconvenient.
 Do not substitute an item.
+Do not merge two selected items into one, and do not split one selected item into two.
 ============================================================
 14. MODEL POSE
 ============================================================
@@ -444,7 +528,8 @@ Do not "style" the selected products by changing their construction.
 Styling means:
 COMBINING THE SELECTED GARMENTS.
 Styling does NOT mean:
-REDESIGNING THE GARMENTS.
+REDESIGNING THE GARMENTS, OR CREATING SOMETHING "INSPIRED BY" THEM.
+This is a request to VISUALIZE the exact products in the SELECTED GARMENT MANIFEST (section 0) being worn together -- not a request to design clothing.
 ============================================================
 20. PRIORITY ORDER
 ============================================================
@@ -498,25 +583,37 @@ constraints are stated directly rather than passed separately)
 ============================================================
 The generated image must never show:
 button jacket instead of zipper jacket, button-front jacket, button-up jacket, suit jacket, blazer, double-breasted jacket, invented buttons, invented buttonholes, missing zipper, replaced zipper, altered closure, incorrect closure, redesigned garment, substituted garment, generic clothing, a different garment than selected, short-sleeved jacket, cropped jacket sleeves, long-sleeved polo, shirt cuffs peeking from jacket sleeves, invented cuffs, rolled sleeves that weren't selected, extra garments, extra shirt, extra jacket, extra coat, extra accessories, a missing selected garment, a hidden garment, occluded clothing, cropped outfit, cropped legs, cropped feet, missing shoes, cropped shoes, flat lay, clothing without a model, a mannequin, torso-only presentation, a female model, a child, empty clothing, floating clothing, distorted clothing, merged garments, incorrect layering, unrealistic garment construction, unrealistic body proportions, distorted anatomy, an extreme pose, crossed arms, hands covering clothing, a sitting pose, fashion-editorial abstraction, excessive shadows, harsh contrast that hides garment details, clothing obscured by props, a shirt or polo hidden or covered by a jacket, a shirt not visible under a jacket, or a jacket covering the shirt. Never hide, partially show, or imply a selected shirt/polo instead of showing it in full (sleeves, collar, and front all visible) -- this applies whether or not outerwear is also selected; open or unzip outerwear as needed rather than hiding the shirt/polo beneath it.
+Also never show: an omitted jacket, an omitted shirt, an omitted selected garment, a wrong garment, a sport coat in place of a selected garment, a pullover in place of a selected garment, a wrong closure type, incorrect garment color, duplicate garments, an incomplete outfit, a fashion reinterpretation of the selection, a garment redesign, a long sleeve rendered where a short sleeve was selected, or a short sleeve rendered where a long sleeve was selected.
 ============================================================
 FINAL OBJECTIVE
 ============================================================
-Generate a sophisticated, realistic, premium men's fashion photograph that presents the EXACT selected ARROW garments as a complete, clearly visible outfit, worn by a realistic adult male model, with the exact garment construction and closure mechanisms preserved -- a zip-up jacket must still be a zip-up jacket, never a button jacket or blazer.
+Generate a sophisticated, realistic, premium men's fashion photograph that presents the EXACT selected ARROW garments listed in the SELECTED GARMENT MANIFEST (section 0) as a complete, clearly visible outfit, worn by a realistic adult male model reproducing those exact garments from their reference images, with the exact garment construction and closure mechanisms preserved -- a zip-up jacket must still be a zip-up jacket, never a button jacket or blazer.
 The image should look suitable for a premium ARROW Philippines product presentation, styling recommendation, or retail campaign.
 The clothing is the hero. The model supports the clothing. The composition supports product visibility.
 Do not optimize for a beautiful generic fashion image. Optimize for: exact product + complete outfit + male model + commercial presentation.
 Garment accuracy is more important than artistic interpretation.`;
 
-// Signature kept identical to the previous per-garment implementation so
-// callers (fal-flux.ts) and the outfit-generation cache (which hashes on
-// selected items + occasion/styleContext + ruleVersion + PROMPT_VERSION,
-// see combinationHash.ts) don't need to change -- the garments and
-// context are still part of what makes an outfit combination unique for
-// caching purposes, they're just no longer woven into the prompt text
-// itself.
+// Builds the per-request prompt: the SELECTED GARMENT MANIFEST (dynamic,
+// built fresh from the actual selected items) followed by the general
+// ARROW master prompt (static across requests -- sections 1-22 plus the
+// final objective, unchanged in substance since v23 aside from the
+// section 13/19 and header/final-objective wording called out in the
+// PROMPT_VERSION comment above). `context` (occasion/styleContext) is
+// surfaced as an informational note only -- it must never be able to
+// override the garment manifest, which is why it's phrased that way
+// explicitly rather than woven into the rules themselves.
 export function buildVisualizationPrompt(
-  _garments: OutfitGarmentInput[],
-  _context?: { occasion?: Occasion; styleContext?: StyleContext }
+  garments: OutfitGarmentInput[],
+  context?: { occasion?: Occasion; styleContext?: StyleContext }
 ): string {
-  return MASTER_PROMPT;
+  const manifestSection = `============================================================
+0. SELECTED GARMENT MANIFEST — AUTHORITATIVE, READ FIRST
+============================================================
+${buildGarmentManifest(garments)}`;
+  const contextValues = [context?.occasion, context?.styleContext].filter(Boolean);
+  const contextNote =
+    contextValues.length > 0
+      ? `\nRequested context: ${contextValues.join(", ")}. This informs pose and setting choices only -- it never overrides the garment manifest above.\n`
+      : "";
+  return `${MASTER_PROMPT_HEADER}\n${manifestSection}\n${contextNote}${MASTER_PROMPT_BODY}`;
 }

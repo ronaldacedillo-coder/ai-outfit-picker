@@ -22,7 +22,7 @@ export interface ClothingAnalysis {
   style: "business_formal" | "business_casual" | "smart_casual" | "casual";
   formalityLevel: number; // 1-5
   description: string;
-  visualDetails?: Record<string, string>; // collar, lapel, sleeve, silhouette, etc.
+  visualDetails?: Record<string, string>; // collar, lapel, sleeve, closure, silhouette, etc.
 }
 
 /** Vision + reasoning provider (MVP default: Google Gemini). */
@@ -43,7 +43,7 @@ export interface OutfitGarmentInput {
   primaryColorHex?: string; // enables hex-anchored color-fidelity prompt lines when available
   pattern: string;
   style: string;
-  visualDetails?: Record<string, string> | null; // collar, lapel, sleeve, silhouette, etc. (from ai_analysis)
+  visualDetails?: Record<string, string> | null; // collar, lapel, sleeve, closure, silhouette, etc. (from ai_analysis)
 }
 
 /**

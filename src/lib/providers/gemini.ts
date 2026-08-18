@@ -143,6 +143,7 @@ const RESPONSE_SCHEMA = {
         collar: { type: "string" },
         lapel: { type: "string" },
         sleeve: { type: "string" },
+        closure: { type: "string" },
         silhouette: { type: "string" },
         texture: { type: "string" },
       },
@@ -154,9 +155,18 @@ const RESPONSE_SCHEMA = {
   ],
 };
 
+// "closure" was added to visualDetails (and to this prompt) after a real
+// outfit-visualization generation dropped a selected full-zip jacket
+// entirely and rendered a selected short-sleeved polo as long-sleeved --
+// traced back to buildVisualizationPrompt.ts having no per-garment
+// sleeve/closure data to work with at all, relying solely on FLUX's own
+// (unreliable) visual inference from reference images. Capturing sleeve
+// length and closure type here, at analysis time, is what makes it
+// possible for that prompt to state each selected garment's sleeve
+// length and closure type as an explicit, structured fact instead.
 const PROMPT = `You are analyzing a single photo of one clothing item from a personal wardrobe app.
 Describe only what you can actually see in the image — do not invent details you can't observe.
-Return the classification as JSON matching the provided schema: overall category (e.g. "top", "bottom", "outerwear"), a specific subcategory in plain English (e.g. "long-sleeve shirt", "polo shirt", "business jacket"), the primary color, any secondary colors, the pattern, the style, a formality level from 1 (very casual) to 5 (very formal), a one-sentence description, and any visible details like collar, lapel, sleeve, silhouette, or texture.`;
+Return the classification as JSON matching the provided schema: overall category (e.g. "top", "bottom", "outerwear"), a specific subcategory in plain English (e.g. "long-sleeve shirt", "polo shirt", "business jacket"), the primary color, any secondary colors, the pattern, the style, a formality level from 1 (very casual) to 5 (very formal), a one-sentence description, and any visible details like collar, lapel, sleeve length (e.g. "short sleeve", "long sleeve", "sleeveless"), closure type (e.g. "full zipper", "button front", "snap", "none"), silhouette, or texture.`;
 
 export class GeminiAIProvider implements AIProvider {
   private readonly client: GoogleGenAI;

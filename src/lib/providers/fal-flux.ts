@@ -30,6 +30,13 @@ export class FalFluxImageGenProvider implements ImageGenProvider {
     // "undefined" label into a real generation prompt.
     const parsedOccasion = input.occasion ? occasionEnum.safeParse(input.occasion) : undefined;
     const parsedStyleContext = input.styleContext ? styleContextEnum.safeParse(input.styleContext) : undefined;
+    // buildVisualizationPrompt (v24+) numbers each item in its SELECTED
+    // GARMENT MANIFEST ("ITEM 1 of N", "ITEM 2 of N", ...) and tells FLUX
+    // that "reference image 1" / "reference image 2" corresponds to that
+    // same numbering -- so input.garments here MUST stay in the same
+    // order as whatever the prompt text describes. It already does: both
+    // this call and the image_url(s) below map over the same
+    // input.garments array, in order, with no reordering in between.
     const prompt = buildVisualizationPrompt(input.garments, {
       occasion: parsedOccasion?.success ? parsedOccasion.data : undefined,
       styleContext: parsedStyleContext?.success ? parsedStyleContext.data : undefined,
