@@ -109,7 +109,33 @@ import type { Occasion, StyleContext } from "@/lib/validation/occasion";
 // photograph of the model "wearing the exact selected garments provided
 // as references," per this fix's own instruction not to let FLUX "design
 // an outfit inspired by" the selection.
-export const PROMPT_VERSION = 24;
+//
+// Bumped again (25) after a second, related root-cause report: a plain
+// solid-gray full-zip jacket kept coming back with invented surface
+// texture/patterning (woven grain, speckling, etc.) even though nothing
+// about it should have been ambiguous -- its own `pattern` attribute in
+// the product database is "solid". The gap: section 0's manifest already
+// surfaced each item's Pattern field (e.g. "solid", "striped"), but
+// nothing in the prompt ever explained what "solid" is supposed to mean
+// for image generation specifically -- that a plain/solid surface must
+// stay photographically smooth (folds, highlights, and shadows are fine)
+// and must NOT be reinterpreted as "textured" just because a fully flat,
+// zero-detail surface can look less "realistic" to an image model than
+// one with invented grain. Fixed generically, not as a one-off for this
+// jacket: describeGarment() now derives an explicit Surface requirement
+// line from each item's own `pattern` value (solid -> stay plain/smooth,
+// non-solid -> preserve that exact pattern, unknown -> infer from the
+// reference image) -- see surfaceRequirementFor() below. This applies to
+// every selected garment via the existing per-request manifest, the same
+// mechanism v24 introduced for sleeve length and closure. A new section
+// 23 states the general rule once, plus the specific gray-jacket
+// instruction as a worked example (not a special-cased hack -- the
+// enforcement itself is entirely data-driven per garment). Section 22's
+// never-render list and section 21's self-check gained matching
+// pattern/surface entries, and a cross-garment-leakage rule (never
+// transfer one item's pattern, texture, or color onto a different item)
+// was added to close the general version of the same class of bug.
+export const PROMPT_VERSION = 25;
 
 // Renders one garment's known attributes as a labeled block. Missing
 // visualDetails entries (sleeve/closure/collar/silhouette) are common --
@@ -126,6 +152,37 @@ function attr(value: string | undefined | null, fallback: string): string {
 const INFER_FROM_IMAGE =
   "not recorded in the product database -- infer this from the reference image itself, and do not guess a value that contradicts what the reference image actually shows";
 
+// Non-solid values from the app's own pattern enum (see
+// src/lib/validation/clothing.ts's patternEnum) -- kept here as a plain
+// list rather than importing the enum, since this file only needs the
+// one bit of information (solid vs. not) and shouldn't take on a
+// dependency for it.
+const NON_SOLID_PATTERNS = new Set(["striped", "checked", "plaid", "printed", "textured", "other"]);
+
+// This is the fix for a report distinct from, but structurally identical
+// to, the v24 bug: a garment's `pattern` attribute already lived in the
+// product database and was already surfaced as a "Pattern: solid" line
+// in the manifest, but nothing ever explained what a FLUX model should
+// actually do with that fact -- so a plain gray jacket kept coming back
+// with invented woven texture. This makes the instruction explicit and
+// derives it straight from the stored attribute, generically, for every
+// garment -- not hardcoded to any one item.
+function surfaceRequirementFor(pattern: string | undefined | null): string {
+  const normalized = pattern?.trim().toLowerCase();
+  if (!normalized) {
+    return "not recorded in the product database -- infer the surface/pattern from the reference image itself and preserve exactly what it shows, whether that is a plain solid surface or an actual pattern.";
+  }
+  if (NON_SOLID_PATTERNS.has(normalized)) {
+    return `${normalized.toUpperCase()} -- this item has a ${normalized} pattern in the reference image. Preserve that exact pattern faithfully; do not remove it, simplify it into a solid color, fade it, or replace it with a different pattern.`;
+  }
+  // Anything else (in practice: "solid", the common case) is treated as
+  // solid rather than matched against an exact string, so this degrades
+  // safely if the stored value is ever something unexpected -- the
+  // default behavior for an unrecognized pattern value should be "keep
+  // it plain," not "assume it's fine to invent texture."
+  return "SOLID -- this item must remain a plain, smooth, unpatterned surface in its stated primary color. Natural photographic fabric folds, highlights, and shadows are allowed and expected -- they are not a \"pattern\" and are not an excuse to add one. Do NOT add: weave texture, jacquard, herringbone, tweed, knit texture, speckling, heathering, marling, mottling, checks, stripes, camouflage, geometric patterns, tonal patterns, embossed or raised texture, decorative stitching, or any other surface detail not present in the reference image.";
+}
+
 function describeGarment(garment: OutfitGarmentInput, index: number, total: number): string {
   const details = garment.visualDetails ?? {};
   const colorLabel = garment.primaryColorHex
@@ -138,6 +195,7 @@ function describeGarment(garment: OutfitGarmentInput, index: number, total: numb
     `Subcategory: ${attr(garment.subcategory, "unspecified")}`,
     `Primary color: ${colorLabel}`,
     `Pattern: ${attr(garment.pattern, "unspecified")}`,
+    `Surface requirement: ${surfaceRequirementFor(garment.pattern)}`,
     `Style: ${attr(garment.style, "unspecified")}`,
     `Sleeve length: ${attr(details.sleeve, INFER_FROM_IMAGE)}`,
     `Closure: ${attr(details.closure, INFER_FROM_IMAGE)}`,
@@ -572,6 +630,8 @@ Before finishing, verify:
 - Trouser length is correct.
 - No unselected garment was added.
 - No selected garment was removed.
+- Each garment's pattern matches its manifest entry: no invented texture, weave, or pattern on a garment marked solid, and no lost or altered pattern on a garment that actually has one.
+- No garment's pattern, texture, or color has been transferred onto a different garment.
 - Garments are layered realistically.
 - Model pose does not hide important garments.
 - Product details are sufficiently visible.
@@ -584,6 +644,21 @@ constraints are stated directly rather than passed separately)
 The generated image must never show:
 button jacket instead of zipper jacket, button-front jacket, button-up jacket, suit jacket, blazer, double-breasted jacket, invented buttons, invented buttonholes, missing zipper, replaced zipper, altered closure, incorrect closure, redesigned garment, substituted garment, generic clothing, a different garment than selected, short-sleeved jacket, cropped jacket sleeves, long-sleeved polo, shirt cuffs peeking from jacket sleeves, invented cuffs, rolled sleeves that weren't selected, extra garments, extra shirt, extra jacket, extra coat, extra accessories, a missing selected garment, a hidden garment, occluded clothing, cropped outfit, cropped legs, cropped feet, missing shoes, cropped shoes, flat lay, clothing without a model, a mannequin, torso-only presentation, a female model, a child, empty clothing, floating clothing, distorted clothing, merged garments, incorrect layering, unrealistic garment construction, unrealistic body proportions, distorted anatomy, an extreme pose, crossed arms, hands covering clothing, a sitting pose, fashion-editorial abstraction, excessive shadows, harsh contrast that hides garment details, clothing obscured by props, a shirt or polo hidden or covered by a jacket, a shirt not visible under a jacket, or a jacket covering the shirt. Never hide, partially show, or imply a selected shirt/polo instead of showing it in full (sleeves, collar, and front all visible) -- this applies whether or not outerwear is also selected; open or unzip outerwear as needed rather than hiding the shirt/polo beneath it.
 Also never show: an omitted jacket, an omitted shirt, an omitted selected garment, a wrong garment, a sport coat in place of a selected garment, a pullover in place of a selected garment, a wrong closure type, incorrect garment color, duplicate garments, an incomplete outfit, a fashion reinterpretation of the selection, a garment redesign, a long sleeve rendered where a short sleeve was selected, or a short sleeve rendered where a long sleeve was selected.
+Also never show, on any garment whose manifest entry (section 0) marks it solid: an invented pattern, invented fabric texture, a woven texture, herringbone, jacquard, tweed, knitted texture, a heathered surface, a marled surface, a speckled surface, a mottled surface, checks, stripes, camouflage, or an embossed or raised texture -- and on any garment whose manifest entry marks it as having an actual pattern: a removed, faded, or simplified pattern, or a substituted pattern. Never show one selected garment's pattern, texture, or color transferred onto a different selected garment.
+============================================================
+23. PATTERN AND SURFACE FIDELITY
+============================================================
+Every selected garment's pattern (or lack of one) is defined by that item's own Pattern and Surface requirement lines in the SELECTED GARMENT MANIFEST (section 0), together with its reference image -- reproduce it exactly.
+If an item's pattern is SOLID:
+it must render as a plain, smooth, unpatterned surface in its own stated color.
+Natural photographic fabric folds, highlights, and shadows are allowed and expected -- they are not a "pattern" and are not an excuse to add one.
+Do NOT add weave texture, jacquard, herringbone, tweed, knit texture, speckling, heathering, marling, mottling, checks, stripes, camouflage, geometric or tonal patterns, embossed or raised texture, decorative stitching, or fabric graphics that are not present in the reference image.
+If an item's pattern is striped, checked, plaid, printed, textured, or otherwise non-solid:
+preserve that exact pattern faithfully.
+Do not remove it, simplify it into a solid color, fade it, or replace it with a different pattern.
+Do not confuse "realistic fabric" with "textured fabric": a smooth, plain, solid-color garment rendered with realistic lighting, folds, and subtle natural shading is CORRECT; that same garment rendered with visible woven grain, speckling, patterning, herringbone, jacquard, or any other decorative surface detail is INCORRECT, even if it looks more "photographic."
+Worked example (this rule is general -- it applies to every solid-pattern garment, not only this one): a plain solid-gray full-zip jacket is a PLAIN SOLID-GRAY GARMENT. REPRODUCE IT EXACTLY AS SHOWN IN THE PRODUCT REFERENCE. DO NOT ADD ANY PATTERN, TEXTURE, WEAVE, PRINT, OR DECORATIVE SURFACE DETAIL. NATURAL LIGHTING AND NATURAL FABRIC FOLDS ARE ALLOWED, BUT THE JACKET'S SURFACE MUST REMAIN VISUALLY SMOOTH, UNIFORM, AND SOLID GRAY.
+Never transfer one garment's pattern, texture, fabric appearance, or color onto a different garment. Each selected garment keeps only its own attributes, exactly as listed in its own entry in section 0.
 ============================================================
 FINAL OBJECTIVE
 ============================================================

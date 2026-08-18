@@ -26,6 +26,17 @@ import type { OutfitGarmentInput } from "@/lib/providers/types";
 // regardless of input, and the manifest is checked for actually varying
 // with -- and accurately reflecting -- whatever was selected. The
 // fixtures below intentionally mirror the reported bug's exact test case.
+//
+// v25 is the same class of bug again, one attribute over: a plain
+// solid-gray full-zip jacket kept coming back with invented surface
+// texture even though its own `pattern` attribute was already "solid" --
+// the manifest surfaced that fact as a "Pattern: solid" line, but nothing
+// ever told FLUX what "solid" should mean for rendering. Fixed generically
+// via a new per-garment "Surface requirement" line (derived from each
+// item's own pattern value, not hardcoded to any one garment) plus a new
+// section 23. The `jacket` fixture below already used pattern: "solid"
+// (unchanged), and a new `pattern` fixture below covers the non-solid
+// path (an actual pattern must be preserved, not flattened to solid).
 
 const jacket: OutfitGarmentInput = {
   imageUrl: "https://example.com/jacket.jpg",
@@ -57,6 +68,17 @@ const pants: OutfitGarmentInput = {
   primaryColor: "beige",
   pattern: "solid",
   style: "casual",
+};
+// Covers the non-solid path for the v25 pattern/surface fix -- an actual
+// pattern must be preserved, not flattened into a plain solid surface.
+const patternedShirt: OutfitGarmentInput = {
+  imageUrl: "https://example.com/striped-shirt.jpg",
+  role: "top",
+  category: "top",
+  subcategory: "dress shirt",
+  primaryColor: "white",
+  pattern: "striped",
+  style: "business_formal",
 };
 
 // The general master rules (sections 1-22 + FINAL OBJECTIVE) are meant to
@@ -113,6 +135,7 @@ describe("buildVisualizationPrompt", () => {
       expect(prompt).toContain("20. PRIORITY ORDER");
       expect(prompt).toContain("21. FINAL INTERNAL VALIDATION");
       expect(prompt).toContain("22. NEVER RENDER");
+      expect(prompt).toContain("23. PATTERN AND SURFACE FIDELITY");
       expect(prompt).toContain("FINAL OBJECTIVE");
     });
 
@@ -302,6 +325,63 @@ describe("buildVisualizationPrompt", () => {
       const prompt = buildVisualizationPrompt([]);
       expect(prompt.toLowerCase()).toContain("error: no selected garments were provided");
       expect(prompt.toLowerCase()).toContain("do not invent an outfit");
+    });
+
+    it("derives a per-item Surface requirement from each garment's own pattern value -- the v25 fix for invented texture on solid garments", () => {
+      const prompt = buildVisualizationPrompt([jacket, patternedShirt]);
+      // jacket is pattern: "solid" -- must be told to stay plain/smooth.
+      expect(prompt).toContain(
+        'Surface requirement: SOLID -- this item must remain a plain, smooth, unpatterned surface in its stated primary color.'
+      );
+      expect(prompt.toLowerCase()).toContain("do not add: weave texture, jacquard, herringbone, tweed, knit texture");
+      // patternedShirt is pattern: "striped" -- must be told to preserve it.
+      expect(prompt).toContain("Surface requirement: STRIPED -- this item has a striped pattern in the reference image.");
+      expect(prompt.toLowerCase()).toContain("do not remove it, simplify it into a solid color");
+    });
+
+    it("falls back to inferring the surface/pattern from the reference image when pattern is missing, rather than assuming solid", () => {
+      const noPattern: OutfitGarmentInput = { ...shirt, pattern: "" };
+      const prompt = buildVisualizationPrompt([noPattern]);
+      expect(prompt.toLowerCase()).toContain(
+        "surface requirement: not recorded in the product database -- infer the surface/pattern from the reference image itself"
+      );
+    });
+  });
+
+  describe("PATTERN AND SURFACE FIDELITY (section 23) -- v25", () => {
+    it("states the general rule that a solid garment must stay plain/smooth and a patterned garment must keep its pattern", () => {
+      const prompt = buildVisualizationPrompt([jacket, patternedShirt]);
+      expect(prompt).toContain("If an item's pattern is SOLID:");
+      expect(prompt.toLowerCase()).toContain("it must render as a plain, smooth, unpatterned surface in its own stated color");
+      expect(prompt.toLowerCase()).toContain("preserve that exact pattern faithfully");
+    });
+
+    it("distinguishes realistic fabric (folds/lighting/shadows) from textured fabric (invented weave/pattern) explicitly", () => {
+      const prompt = buildVisualizationPrompt([jacket]).toLowerCase();
+      expect(prompt).toContain('do not confuse "realistic fabric" with "textured fabric"');
+      expect(prompt).toContain("natural photographic fabric folds, highlights, and shadows are allowed and expected");
+    });
+
+    it("includes the gray full-zip jacket worked example as a generalized illustration, not a hardcoded special case", () => {
+      const prompt = buildVisualizationPrompt([jacket]);
+      expect(prompt.toLowerCase()).toContain("this rule is general -- it applies to every solid-pattern garment, not only this one");
+      expect(prompt).toContain(
+        "PLAIN SOLID-GRAY GARMENT. REPRODUCE IT EXACTLY AS SHOWN IN THE PRODUCT REFERENCE. DO NOT ADD ANY PATTERN, TEXTURE, WEAVE, PRINT, OR DECORATIVE SURFACE DETAIL."
+      );
+    });
+
+    it("prohibits transferring one garment's pattern, texture, or color onto a different garment", () => {
+      const prompt = buildVisualizationPrompt([jacket, shirt]).toLowerCase();
+      expect(prompt).toContain("never transfer one garment's pattern, texture, fabric appearance, or color onto a different garment");
+    });
+
+    it("extends the never-render list (section 22) and the final self-check (section 21) with matching pattern/surface entries", () => {
+      const prompt = buildVisualizationPrompt([jacket, shirt]).toLowerCase();
+      expect(prompt).toContain("an invented pattern, invented fabric texture, a woven texture, herringbone, jacquard, tweed");
+      expect(prompt).toContain(
+        "each garment's pattern matches its manifest entry: no invented texture, weave, or pattern on a garment marked solid"
+      );
+      expect(prompt).toContain("no garment's pattern, texture, or color has been transferred onto a different garment.");
     });
   });
 
