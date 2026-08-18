@@ -73,17 +73,34 @@ describe("buildVisualizationPrompt", () => {
     expect(prompt).toContain("no collage, no visible reference images, no other panels or frames");
   });
 
+  describe("top-line open-jacket headline (regression: three separate detailed CRITICAL blocks about the open front all still lost out to a fully closed jacket in real generations -- a short, unmissable first line was added on the theory that position and brevity matter for compliance independent of how thoroughly a requirement is explained elsewhere)", () => {
+    it("is the literal first line of the prompt when outerwear is selected", () => {
+      const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
+      expect(prompt.startsWith("JACKET MUST BE WORN FULLY OPEN AND UNZIPPED/UNBUTTONED -- NEVER RENDER IT CLOSED.")).toBe(true);
+      expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBeGreaterThan(0);
+    });
+
+    it("is absent, and the composition rule leads instead, when no outerwear is selected", () => {
+      const prompt = buildVisualizationPrompt([shirt]);
+      expect(prompt).not.toContain("JACKET MUST BE WORN FULLY OPEN");
+      expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
+    });
+  });
+
   describe("critical composition-lock rule (regression: a real generation showed the model plus a separate inset photo of a person and a separate floating garment cutout in the same output image, despite the existing single-photograph instructions above)", () => {
-    it("leads every prompt with the critical composition rule, regardless of which garments are selected", () => {
+    it("leads every prompt with the critical composition rule (after the top-line open-jacket headline, when present), regardless of which garments are selected", () => {
       const withOuterwear = buildVisualizationPrompt([jacket, shirt, pants]);
       const singleGarment = buildVisualizationPrompt([shirt]);
       for (const prompt of [withOuterwear, singleGarment]) {
-        expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
+        expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBeGreaterThanOrEqual(0);
+        expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBeLessThan(prompt.indexOf("Photorealistic professional male model"));
         expect(prompt).toContain("exactly one single photograph containing exactly one person");
         expect(prompt.toLowerCase()).toContain("do not include any additional inset photo, thumbnail, insert, corner panel");
         expect(prompt.toLowerCase()).toContain("do not include any floating, cut-out, or isolated product photo of a garment");
         expect(prompt.toLowerCase()).toContain("collage, grid, moodboard, split-screen, side-by-side comparison");
       }
+      // Without outerwear, nothing precedes the composition rule.
+      expect(singleGarment.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
     });
   });
 
@@ -92,8 +109,9 @@ describe("buildVisualizationPrompt", () => {
       const withOuterwear = buildVisualizationPrompt([jacket, shirt, pants]);
       const singleGarment = buildVisualizationPrompt([shirt]);
       for (const prompt of [withOuterwear, singleGarment]) {
-        expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
-        expect(prompt.indexOf("CRITICAL FRAMING RULE -- THE MODEL'S HEAD AND FACE MUST BE VISIBLE:")).toBeGreaterThan(0);
+        expect(prompt.indexOf("CRITICAL FRAMING RULE -- THE MODEL'S HEAD AND FACE MUST BE VISIBLE:")).toBeGreaterThan(
+          prompt.indexOf("CRITICAL COMPOSITION RULE")
+        );
         expect(prompt.indexOf("CRITICAL FRAMING RULE")).toBeLessThan(
           prompt.indexOf("Photorealistic professional male model")
         );
@@ -108,8 +126,9 @@ describe("buildVisualizationPrompt", () => {
   describe("critical natural-pose rule (regression: a real generation posed the model gripping and pulling open the jacket's lapels with his hands instead of standing naturally with it just hanging open)", () => {
     it("leads the prompt with the critical natural-pose rule when outerwear is selected", () => {
       const prompt = buildVisualizationPrompt([jacket, shirt, pants]);
-      expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
-      expect(prompt.indexOf("CRITICAL POSE RULE -- THE MODEL MUST STAND NATURALLY, NOT HOLDING THE JACKET:")).toBeGreaterThan(0);
+      expect(prompt.indexOf("CRITICAL POSE RULE -- THE MODEL MUST STAND NATURALLY, NOT HOLDING THE JACKET:")).toBeGreaterThan(
+        prompt.indexOf("CRITICAL COMPOSITION RULE")
+      );
       expect(prompt.indexOf("CRITICAL POSE RULE")).toBeLessThan(prompt.indexOf("Photorealistic professional male model"));
       const lower = prompt.toLowerCase();
       expect(lower).toContain("arms and hands relaxed at his sides");
@@ -458,10 +477,12 @@ describe("buildVisualizationPrompt", () => {
       expect(prompt).toContain(
         "PRIORITY RULE: Garment fidelity is more important than fashion interpretation, visual creativity, or aesthetic improvement."
       );
-      // The always-present composition-lock block leads the prompt; this
+      // The composition-lock block leads the prompt (after the top-line
+      // open-jacket headline, since outerwear is selected here); this
       // block must come right after it, still ahead of general task framing.
-      expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
-      expect(prompt.indexOf("CRITICAL OUTFIT GENERATION RULE")).toBeGreaterThan(0);
+      expect(prompt.indexOf("CRITICAL OUTFIT GENERATION RULE")).toBeGreaterThan(
+        prompt.indexOf("CRITICAL COMPOSITION RULE")
+      );
       expect(prompt.indexOf("CRITICAL OUTFIT GENERATION RULE")).toBeLessThan(
         prompt.indexOf("Photorealistic professional male model")
       );
@@ -508,12 +529,13 @@ describe("buildVisualizationPrompt", () => {
       expect(prompt.toLowerCase()).toContain("hang open naturally on its own");
       expect(prompt.toLowerCase()).toContain("do not have the model grip, hold, pull open, spread apart, or otherwise touch the jacket's lapels or front panels");
       expect(prompt.toLowerCase()).toContain("model is standing naturally with his hands not touching or holding the jacket open");
-      // Must lead the prompt: after the unconditional composition-lock
-      // block, before general task framing, and (per the assembly order in
+      // Must lead the prompt: after the composition-lock block, before
+      // general task framing, and (per the assembly order in
       // buildVisualizationPrompt) after the garment-fidelity block but
       // before the belt-visibility block.
-      expect(prompt.indexOf("CRITICAL COMPOSITION RULE")).toBe(0);
-      expect(prompt.indexOf("CRITICAL LAYERING VISIBILITY RULE")).toBeGreaterThan(0);
+      expect(prompt.indexOf("CRITICAL LAYERING VISIBILITY RULE")).toBeGreaterThan(
+        prompt.indexOf("CRITICAL COMPOSITION RULE")
+      );
       expect(prompt.indexOf("CRITICAL LAYERING VISIBILITY RULE")).toBeLessThan(
         prompt.indexOf("Photorealistic professional male model")
       );

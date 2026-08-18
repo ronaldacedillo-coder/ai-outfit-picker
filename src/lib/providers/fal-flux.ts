@@ -45,7 +45,20 @@ export class FalFluxImageGenProvider implements ImageGenProvider {
     // real generations even after the prompt instruction was made very
     // explicit and repeated twice. A higher guidance scale weights prompt
     // adherence more heavily against the model's own priors.
-    const GUIDANCE_SCALE = 6.5;
+    //
+    // Raised again from 6.5 -- a selected jacket kept rendering fully
+    // zipped/buttoned closed (hiding the shirt underneath) across several
+    // real generations even after the "must be worn open" instruction was
+    // independently restated in three separate CRITICAL prompt blocks and
+    // finally promoted to a single-line, first-in-the-prompt headline (see
+    // buildTopLineOpenJacketReminder in buildVisualizationPrompt.ts). That
+    // was purely a prompt-text escalation; this is the first time the
+    // guidance scale itself has been raised in response to this specific
+    // failure mode, on the premise that a closed jacket is a strong,
+    // commonly-photographed default for this garment type that the model's
+    // own priors keep reverting to, and prompt adherence needs more
+    // relative weight to override it than 6.5 was providing.
+    const GUIDANCE_SCALE = 8;
     const requestInput =
       input.garments.length >= 2
         ? {

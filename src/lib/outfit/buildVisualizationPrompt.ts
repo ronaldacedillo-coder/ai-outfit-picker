@@ -7,7 +7,7 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 15;
+export const PROMPT_VERSION = 16;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
@@ -350,6 +350,28 @@ function buildCategorySubstitutionLines(garments: OutfitGarmentInput[]): string[
   return lines;
 }
 
+// Single-line, all-caps headline -- placed as the literal first characters
+// of the entire prompt, ahead of even the composition lock below. Added
+// after repeated real generations kept rendering a selected jacket fully
+// zipped/buttoned closed despite three separate, detailed CRITICAL blocks
+// already addressing this from different angles (garment fidelity,
+// layering visibility, belt visibility) -- each of those blocks states the
+// open-front requirement, but each does so as one instruction embedded
+// several paragraphs into a longer block, competing with everything else
+// in an increasingly long prompt for the model's attention. This is
+// deliberately the opposite kind of fix from those blocks: not more
+// explanation, but the shortest, plainest, most front-loaded possible
+// statement of the one requirement that keeps failing, on the theory that
+// instruction position and brevity matter for compliance independent of
+// how thoroughly a requirement is explained elsewhere. Kept intentionally
+// terse -- the detailed reasoning and self-verification steps still live
+// in the blocks below; this line's only job is maximum salience.
+function buildTopLineOpenJacketReminder(garments: OutfitGarmentInput[]): string[] {
+  const hasOuterwear = garments.some((g) => normalize(g.category) === "outerwear");
+  if (!hasOuterwear) return [];
+  return ["JACKET MUST BE WORN FULLY OPEN AND UNZIPPED/UNBUTTONED -- NEVER RENDER IT CLOSED.", ""];
+}
+
 // Leading, unconditional composition-lock rule -- placed first in the
 // prompt (even before the critical garment-fidelity block) because a
 // real generation showed the multi-image Kontext model compositing the
@@ -590,6 +612,10 @@ export function buildVisualizationPrompt(
     .join("\n");
 
   return [
+    // -2. Single-line, all-caps headline reminder (only when outerwear is
+    // selected -- see buildTopLineOpenJacketReminder). Deliberately the
+    // very first thing in the prompt, ahead of even the composition lock.
+    ...buildTopLineOpenJacketReminder(garments),
     // -1. Leading critical composition-lock rule (unconditional, every
     // generation -- see buildCriticalCompositionLines)
     ...buildCriticalCompositionLines(),
