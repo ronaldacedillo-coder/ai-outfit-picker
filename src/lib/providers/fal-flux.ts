@@ -46,19 +46,21 @@ export class FalFluxImageGenProvider implements ImageGenProvider {
     // explicit and repeated twice. A higher guidance scale weights prompt
     // adherence more heavily against the model's own priors.
     //
-    // Raised again from 6.5 -- a selected jacket kept rendering fully
-    // zipped/buttoned closed (hiding the shirt underneath) across several
-    // real generations even after the "must be worn open" instruction was
-    // independently restated in three separate CRITICAL prompt blocks and
-    // finally promoted to a single-line, first-in-the-prompt headline (see
-    // buildTopLineOpenJacketReminder in buildVisualizationPrompt.ts). That
-    // was purely a prompt-text escalation; this is the first time the
-    // guidance scale itself has been raised in response to this specific
-    // failure mode, on the premise that a closed jacket is a strong,
-    // commonly-photographed default for this garment type that the model's
-    // own priors keep reverting to, and prompt adherence needs more
-    // relative weight to override it than 6.5 was providing.
-    const GUIDANCE_SCALE = 8;
+    // Briefly raised to 8 in an attempt to fix a recurring closed-jacket
+    // issue (see buildTopLineOpenJacketReminder in
+    // buildVisualizationPrompt.ts for the prompt-side half of that fix).
+    // Reverted back to 6.5 after a real generation at 8 came back with the
+    // jacket rendered as a sleeveless, armless cape draped over the
+    // shoulders in the shirt's own burgundy color instead of its actual
+    // gray -- i.e. guidance_scale 8 didn't just fail to fix the open/closed
+    // problem, it broke garment category, construction, and color fidelity
+    // outright, which is a strictly worse failure mode. Pushing this value
+    // too high trades away fidelity to the reference photos in exchange for
+    // stricter (but not even reliably correct) text-prompt adherence, and
+    // 6.5 is the highest value confirmed not to cause that kind of
+    // breakdown. The open/closed-jacket problem is being addressed purely
+    // through prompt wording now, not this lever.
+    const GUIDANCE_SCALE = 6.5;
     const requestInput =
       input.garments.length >= 2
         ? {

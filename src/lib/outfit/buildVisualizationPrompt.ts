@@ -7,7 +7,15 @@ import { OCCASION_LABELS, STYLE_CONTEXT_LABELS, type Occasion, type StyleContext
 // silently serves a stale image generated under the old wording. Matches
 // the existing precedent of a manually-bumped constant documenting a
 // model/template version (see MODEL in src/lib/providers/gemini.ts).
-export const PROMPT_VERSION = 16;
+//
+// Also bumped (17) for a change that lives entirely in fal-flux.ts --
+// reverting GUIDANCE_SCALE from 8 back to 6.5 after guidance_scale 8
+// produced a real generation with the jacket rendered as a sleeveless,
+// wrong-colored cape. The combination-hash cache key has no field for
+// guidance_scale, so PROMPT_VERSION is the only lever available to force
+// that specific already-cached bad image to regenerate instead of being
+// served again.
+export const PROMPT_VERSION = 17;
 
 function humanize(text: string): string {
   return text.replace(/_/g, " ");
